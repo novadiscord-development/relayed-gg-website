@@ -61,7 +61,7 @@ export default function ChatArea() {
   const [embed, setEmbed] = useState(emptyEmbed);
   const [sendingEmbed, setSendingEmbed] = useState(false);
 
-  const canCreateEmbeds = ["owner", "admin", "moderator"].includes(
+  const canCreateEmbeds = ["owner", "admin", "moderator", "member"].includes(
     currentMember?.role
   );
 

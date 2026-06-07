@@ -195,159 +195,152 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
   function renderContent() {
     if (activeTab === "overview") {
-      return (
+return (
+  <div>
+    <h2 className="text-xl font-black text-white">Server Overview</h2>
+
+    <div className="mt-6 border-b border-white/10 pb-8">
+      <div className="grid gap-8 md:grid-cols-[180px_1fr]">
         <div>
-          <h2 className="text-2xl font-black text-white">Server Overview</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Customize how your server appears across Relayed.
+          <div className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-violet-600 text-3xl font-black text-white">
+            {icon ? (
+              <Image
+                src={icon}
+                alt={name || "Server"}
+                width={112}
+                height={112}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              getInitials(name || server?.name || "S")
+            )}
+
+            <button
+              type="button"
+              className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#313338] bg-[#5865f2] text-white shadow-lg"
+            >
+              <Camera size={15} />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            className="mx-auto mt-4 block rounded-md border border-white/10 bg-[#2b2d31] px-4 py-2 text-xs font-bold text-white hover:bg-[#35373c]"
+          >
+            Upload Image
+          </button>
+
+          {icon && (
+            <button
+              type="button"
+              onClick={() => setIcon("")}
+              className="mx-auto mt-3 block text-xs font-semibold text-slate-400 hover:text-white"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+            We recommend an image of at least 512x512 for the server.
           </p>
 
-          <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_290px]">
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
-                  Server Identity
-                </h3>
+          <div className="mt-5">
+            <label className="mb-2 block text-xs font-black uppercase text-slate-400">
+              Server Name
+            </label>
 
-                <div className="mt-5 space-y-5">
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase text-slate-500">
-                      Server Name
-                    </label>
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Server name"
-                      maxLength={100}
-                      className="w-full rounded-lg border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500"
-                    />
-                  </div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={100}
+              className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
 
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase text-slate-500">
-                      Server Icon URL
-                    </label>
-                    <input
-                      value={icon}
-                      onChange={(e) => setIcon(e.target.value)}
-                      placeholder="https://example.com/icon.png"
-                      className="w-full rounded-lg border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500"
-                    />
-                    <p className="mt-2 text-xs text-slate-600">
-                      Image upload will replace this field soon.
-                    </p>
-                  </div>
-                </div>
-              </div>
+          <div className="mt-5">
+            <label className="mb-2 block text-xs font-black uppercase text-slate-400">
+              Icon URL
+            </label>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
-                  Server Description
-                </h3>
-
-                <p className="mt-1 text-xs text-slate-600">
-                  Tell members what this server is about.
-                </p>
-
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={5}
-                  maxLength={500}
-                  placeholder="A place for your community to hang out."
-                  className="mt-4 w-full resize-none rounded-lg border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500"
-                />
-
-                <div className="mt-2 text-right text-xs text-slate-600">
-                  {description.length}/500
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
-                  Server Safety
-                </h3>
-
-                <div className="mt-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4">
-                  <p className="text-sm font-bold text-yellow-200">
-                    Keep your community recognizable.
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-yellow-100/60">
-                    Choose a clear name and icon so members can easily identify
-                    the server in their sidebar.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-2xl">
-                <div className="h-24 bg-gradient-to-br from-violet-600/70 via-fuchsia-600/40 to-cyan-500/30" />
-
-                <div className="px-5 pb-5">
-                  <div className="-mt-10 flex items-end justify-between">
-                    <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border-4 border-[#111827] bg-violet-600 text-2xl font-black text-white shadow-xl">
-                      {icon ? (
-                        <Image
-                          src={icon}
-                          alt={name || "Server"}
-                          width={80}
-                          height={80}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        getInitials(name || server?.name || "S")
-                      )}
-
-                      <div className="absolute inset-0 hidden items-center justify-center bg-black/50 text-white transition group-hover:flex">
-                        <Camera size={20} />
-                      </div>
-                    </div>
-
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-bold text-slate-400">
-                      Preview
-                    </span>
-                  </div>
-
-                  <h3 className="mt-4 truncate text-lg font-black text-white">
-                    {name || "Untitled Server"}
-                  </h3>
-
-                  <p className="mt-2 line-clamp-4 text-sm leading-5 text-slate-400">
-                    {description ||
-                      "No server description yet. Add one so members know what this server is about."}
-                  </p>
-
-                  <div className="mt-5 grid grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                      <p className="text-xs text-slate-500">Members</p>
-                      <p className="mt-1 text-lg font-black text-white">
-                        {members.length || "—"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                      <p className="text-xs text-slate-500">Owner</p>
-                      <p className="mt-1 truncate text-sm font-bold text-white">
-                        {currentMember?.role === "owner" ? "You" : "Server"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={saveServer}
-                disabled={saving || !name.trim()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Save size={18} />
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
+            <input
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              placeholder="Image upload coming next"
+              className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-violet-500"
+            />
           </div>
         </div>
-      );
+      </div>
+    </div>
+
+    <div className="border-b border-white/10 py-7">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-xs font-black uppercase text-slate-400">
+            Inactive Channel
+          </label>
+          <select className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none">
+            <option>No Inactive Channel</option>
+          </select>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Automatically move members to this channel and mute them when idle.
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-xs font-black uppercase text-slate-400">
+            Inactive Timeout
+          </label>
+          <select className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none opacity-60">
+            <option>5 minutes</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div className="border-b border-white/10 py-7">
+      <label className="mb-2 block text-xs font-black uppercase text-slate-400">
+        System Messages Channel
+      </label>
+
+      <select className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none">
+        <option># nation-announcement</option>
+      </select>
+    </div>
+
+    <div className="pt-7">
+      <label className="mb-2 block text-xs font-black uppercase text-slate-400">
+        Server Description
+      </label>
+
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        rows={4}
+        maxLength={500}
+        placeholder="Describe your server"
+        className="w-full resize-none rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-violet-500"
+      />
+
+      <div className="mt-2 text-right text-xs text-slate-600">
+        {description.length}/500
+      </div>
+    </div>
+
+    <div className="mt-8 flex justify-end">
+      <button
+        onClick={saveServer}
+        disabled={saving || !name.trim()}
+        className="flex items-center gap-2 rounded bg-violet-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-50"
+      >
+        <Save size={16} />
+        {saving ? "Saving..." : "Save Changes"}
+      </button>
+    </div>
+  </div>
+);
     }
 
     if (activeTab === "members") {
