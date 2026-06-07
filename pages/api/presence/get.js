@@ -76,6 +76,7 @@ export default async function handler(req, res) {
         presenceMap[key] = {
           userId: key,
           status: "offline",
+          customStatus: presence.customStatus || "",
           lastSeenAt: null,
           lastActivityAt: null,
         };
