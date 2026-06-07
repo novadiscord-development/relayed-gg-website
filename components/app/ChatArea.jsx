@@ -11,11 +11,13 @@ import {
 } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 
+
 export default function ChatArea() {
   const router = useRouter();
   const { serverId, channelId } = router.query;
 
   const bottomRef = useRef(null);
+  const notificationAudioRef = useRef(null);
 
   const [channel, setChannel] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -39,13 +41,20 @@ export default function ChatArea() {
     const pusherClient = getPusherClient();
     const pusherChannel = pusherClient.subscribe(`channel-${channelId}`);
 
-    function handleNewMessage(message) {
-      setMessages((prev) => {
-        const exists = prev.some((item) => item._id === message._id);
-        if (exists) return prev;
-        return [...prev, message];
-      });
+function handleNewMessage(message) {
+  setMessages((prev) => {
+    const exists = prev.some((item) => item._id === message._id);
+    if (exists) return prev;
+
+    if (document.hidden) {
+      notificationAudioRef.current
+        ?.play()
+        .catch(() => {});
     }
+
+    return [...prev, message];
+  });
+}
 
     function handleUpdatedMessage(updatedMessage) {
       setMessages((prev) =>
@@ -209,7 +218,9 @@ export default function ChatArea() {
   }
 
   return (
+    
     <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
+      <audio ref={notificationAudioRef} src="/sounds/ping.mp3" preload="auto" />
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <div className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600/20">
