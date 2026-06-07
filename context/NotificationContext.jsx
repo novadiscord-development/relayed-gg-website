@@ -24,6 +24,16 @@ export function NotificationProvider({ children }) {
     loadNotifications();
   }, [session?.user?.id]);
 
+  useEffect(() => {
+  if (!session?.user?.id) return;
+
+  const interval = setInterval(() => {
+    loadNotifications();
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [session?.user?.id]);
+
   async function loadNotifications() {
     try {
       const res = await fetch("/api/notifications");
