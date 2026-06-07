@@ -16,7 +16,7 @@ export default function MemberSidebar() {
     loadMembers();
     loadPresence();
 
-    const interval = setInterval(loadPresence, 15000);
+    const interval = setInterval(loadPresence, 1000);
     return () => clearInterval(interval);
   }, [serverId]);
 
