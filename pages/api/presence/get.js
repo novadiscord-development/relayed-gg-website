@@ -63,6 +63,7 @@ export default async function handler(req, res) {
       presenceMap[userId] = {
         userId,
         status,
+        customStatus: presence.customStatus || "",
         lastSeenAt: presence.lastSeenAt,
         lastActivityAt: presence.lastActivityAt,
       };

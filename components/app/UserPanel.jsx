@@ -32,19 +32,21 @@ export default function UserPanel() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  async function updateStatus(nextStatus) {
-    setStatus(nextStatus);
+async function updateStatus(nextStatus = status, nextCustomStatus = customStatus) {
+  setStatus(nextStatus);
+  setCustomStatus(nextCustomStatus);
 
-    await fetch("/api/presence/status", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ status: nextStatus }),
-    }).catch(() => {});
-
-    setOpen(false);
-  }
+  await fetch("/api/presence/status", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      status: nextStatus,
+      customStatus: nextCustomStatus,
+    }),
+  }).catch(() => {});
+}
 
   function getStatusLabel() {
     if (status === "dnd") return "Do Not Disturb";
@@ -123,6 +125,19 @@ export default function UserPanel() {
               )}
             </button>
 
+            <input
+              value={customStatus}
+              onChange={(e) => setCustomStatus(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  updateStatus(status, customStatus);
+                }
+              }}
+              placeholder="Set a custom status"
+              maxLength={80}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500"
+            />
+
             <div className="my-2 h-px bg-white/10" />
 
             <button className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/[0.06] hover:text-white">
@@ -157,7 +172,7 @@ export default function UserPanel() {
               {user?.username || user?.name || "User"}
             </p>
             <p className="truncate text-xs text-slate-400">
-              {getStatusLabel()}
+              {customStatus}
             </p>
           </div>
         </button>

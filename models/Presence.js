@@ -24,6 +24,13 @@ const PresenceSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+
+    customStatus: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 80,
+    },
   },
   { timestamps: true }
 );
