@@ -32,6 +32,7 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   const [name, setName] = useState(server?.name || "");
   const [icon, setIcon] = useState(server?.icon || "");
   const [description, setDescription] = useState("");
+  const [uploadingIcon, setUploadingIcon] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [members, setMembers] = useState([]);
@@ -76,6 +77,34 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
     if (res.ok) setBans(data.bans || []);
     setBansLoading(false);
+  }
+
+  async function handleIconUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingIcon(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload/image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message || "Image upload failed");
+
+      setIcon(data.url);
+    } catch (error) {
+      console.error("ICON_UPLOAD_ERROR", error);
+    } finally {
+      setUploadingIcon(false);
+      event.target.value = "";
+    }
   }
 
   async function saveServer() {
@@ -145,7 +174,9 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   }
 
   async function banMember(member) {
-    const confirmed = confirm(`Ban ${member.userId?.username || "this member"}?`);
+    const confirmed = confirm(
+      `Ban ${member.userId?.username || "this member"}?`
+    );
     if (!confirmed) return;
 
     const res = await fetch("/api/servers/ban-member", {
@@ -195,152 +226,112 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
   function renderContent() {
     if (activeTab === "overview") {
-return (
-  <div>
-    <h2 className="text-xl font-black text-white">Server Overview</h2>
-
-    <div className="mt-6 border-b border-white/10 pb-8">
-      <div className="grid gap-8 md:grid-cols-[180px_1fr]">
+      return (
         <div>
-          <div className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-violet-600 text-3xl font-black text-white">
-            {icon ? (
-              <Image
-                src={icon}
-                alt={name || "Server"}
-                width={112}
-                height={112}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              getInitials(name || server?.name || "S")
-            )}
+          <h2 className="text-xl font-black text-white">Server Overview</h2>
 
-            <button
-              type="button"
-              className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#313338] bg-[#5865f2] text-white shadow-lg"
-            >
-              <Camera size={15} />
-            </button>
+          <div className="mt-6 border-b border-white/10 pb-8">
+            <div className="grid gap-8 md:grid-cols-[180px_1fr]">
+              <div>
+                <div className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-violet-600 text-3xl font-black text-white">
+                  {icon ? (
+                    <Image
+                      src={icon}
+                      alt={name || "Server"}
+                      width={112}
+                      height={112}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    getInitials(name || server?.name || "S")
+                  )}
+
+                  <label
+                    htmlFor="server-icon-upload"
+                    className="absolute right-1 top-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-[#313338] bg-[#5865f2] text-white shadow-lg hover:bg-[#4752c4]"
+                  >
+                    <Camera size={15} />
+                  </label>
+                </div>
+
+                <input
+                  id="server-icon-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleIconUpload}
+                />
+
+                <label
+                  htmlFor="server-icon-upload"
+                  className="mx-auto mt-4 flex cursor-pointer items-center justify-center rounded-md border border-white/10 bg-[#2b2d31] px-4 py-2 text-xs font-bold text-white hover:bg-[#35373c]"
+                >
+                  {uploadingIcon ? "Uploading..." : "Upload Image"}
+                </label>
+
+                {icon && (
+                  <button
+                    type="button"
+                    onClick={() => setIcon("")}
+                    className="mx-auto mt-3 block text-xs font-semibold text-slate-400 hover:text-white"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                  We recommend an image of at least 512x512 for the server.
+                </p>
+
+                <div className="mt-5">
+                  <label className="mb-2 block text-xs font-black uppercase text-slate-400">
+                    Server Name
+                  </label>
+
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    maxLength={100}
+                    className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <button
-            type="button"
-            className="mx-auto mt-4 block rounded-md border border-white/10 bg-[#2b2d31] px-4 py-2 text-xs font-bold text-white hover:bg-[#35373c]"
-          >
-            Upload Image
-          </button>
-
-          {icon && (
-            <button
-              type="button"
-              onClick={() => setIcon("")}
-              className="mx-auto mt-3 block text-xs font-semibold text-slate-400 hover:text-white"
-            >
-              Remove
-            </button>
-          )}
-        </div>
-
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-            We recommend an image of at least 512x512 for the server.
-          </p>
-
-          <div className="mt-5">
+          <div className="pt-7">
             <label className="mb-2 block text-xs font-black uppercase text-slate-400">
-              Server Name
+              Server Description
             </label>
 
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={100}
-              className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-violet-500"
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder="Describe your server"
+              className="w-full resize-none rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-violet-500"
             />
+
+            <div className="mt-2 text-right text-xs text-slate-600">
+              {description.length}/500
+            </div>
           </div>
 
-          <div className="mt-5">
-            <label className="mb-2 block text-xs font-black uppercase text-slate-400">
-              Icon URL
-            </label>
-
-            <input
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              placeholder="Image upload coming next"
-              className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-violet-500"
-            />
+          <div className="mt-8 flex justify-end">
+            <button
+              onClick={saveServer}
+              disabled={saving || !name.trim() || uploadingIcon}
+              className="flex items-center gap-2 rounded bg-violet-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-50"
+            >
+              <Save size={16} />
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div className="border-b border-white/10 py-7">
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-xs font-black uppercase text-slate-400">
-            Inactive Channel
-          </label>
-          <select className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none">
-            <option>No Inactive Channel</option>
-          </select>
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            Automatically move members to this channel and mute them when idle.
-          </p>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-xs font-black uppercase text-slate-400">
-            Inactive Timeout
-          </label>
-          <select className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none opacity-60">
-            <option>5 minutes</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <div className="border-b border-white/10 py-7">
-      <label className="mb-2 block text-xs font-black uppercase text-slate-400">
-        System Messages Channel
-      </label>
-
-      <select className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none">
-        <option># nation-announcement</option>
-      </select>
-    </div>
-
-    <div className="pt-7">
-      <label className="mb-2 block text-xs font-black uppercase text-slate-400">
-        Server Description
-      </label>
-
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        rows={4}
-        maxLength={500}
-        placeholder="Describe your server"
-        className="w-full resize-none rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-violet-500"
-      />
-
-      <div className="mt-2 text-right text-xs text-slate-600">
-        {description.length}/500
-      </div>
-    </div>
-
-    <div className="mt-8 flex justify-end">
-      <button
-        onClick={saveServer}
-        disabled={saving || !name.trim()}
-        className="flex items-center gap-2 rounded bg-violet-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-50"
-      >
-        <Save size={16} />
-        {saving ? "Saving..." : "Save Changes"}
-      </button>
-    </div>
-  </div>
-);
+      );
     }
 
     if (activeTab === "members") {
