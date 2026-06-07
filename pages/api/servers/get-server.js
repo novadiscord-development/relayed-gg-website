@@ -56,8 +56,16 @@ export default async function handler(req, res) {
         name: server.name,
         icon: server.icon,
         ownerId: server.ownerId,
-        role: membership.role,
         createdAt: server.createdAt,
+      },
+
+      membership: {
+        _id: membership._id,
+        role: membership.role,
+        isOwner: membership.role === "owner",
+        canManageServer: ["owner", "admin", "moderator"].includes(
+          membership.role
+        ),
       },
     });
   } catch (error) {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import InvitePeopleModal from "../modals/InvitePeopleModal";
 import {
   DndContext,
   DragOverlay,
@@ -211,10 +212,10 @@ export default function ChannelSidebar() {
     });
   }
 
-  function handleInvitePeople() {
-    setServerMenuOpen(false);
-    console.log("Open invite modal next");
-  }
+function handleInvitePeople() {
+  setServerMenuOpen(false);
+  setShowInviteModal(true);
+}
 
   function handleEditServer() {
     setServerMenuOpen(false);
@@ -746,6 +747,13 @@ export default function ChannelSidebar() {
           </div>
         </div>
       )}
+      {showInviteModal && (
+        <InvitePeopleModal
+            serverId={serverId}
+            serverName={server?.name}
+            onClose={() => setShowInviteModal(false)}
+        />
+        )}
     </>
   );
 }
