@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { Plus, Gift, Smile, Sticker } from "lucide-react";
-import { pusherClient } from "@/lib/pusher";
+import { pusherClient } from "@/lib/pusher-client";
 
 export default function ChatArea() {
   const router = useRouter();
