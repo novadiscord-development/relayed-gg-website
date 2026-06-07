@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import InvitePeopleModal from "../modals/InvitePeopleModal";
+import EditServerModal from "@/components/modals/EditServerModal";
 import {
   DndContext,
   DragOverlay,
@@ -115,6 +116,7 @@ export default function ChannelSidebar() {
   const [loading, setLoading] = useState(true);
 
   const [serverMenuOpen, setServerMenuOpen] = useState(false);
+  const [showEditServerModal, setShowEditServerModal] = useState(false);
 
   const [activeDragChannel, setActiveDragChannel] = useState(null);
 
@@ -218,29 +220,29 @@ function handleInvitePeople() {
   setShowInviteModal(true);
 }
 
-  function handleEditServer() {
-    setServerMenuOpen(false);
-    console.log("Open edit server modal later");
-  }
+function handleEditServer() {
+  setServerMenuOpen(false);
+  setShowEditServerModal(true);
+}
 
-  async function handleLeaveServer() {
-    setServerMenuOpen(false);
+async function handleLeaveServer() {
+  setServerMenuOpen(false);
 
-    const confirmed = confirm(`Leave "${server?.name}"?`);
-    if (!confirmed) return;
+  const confirmed = confirm(`Leave ${server?.name || "this server"}?`);
+  if (!confirmed) return;
 
-    const res = await fetch("/api/servers/leave", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ serverId }),
-    });
+  const res = await fetch("/api/servers/leave", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ serverId }),
+  });
 
-    if (!res.ok) return;
+  if (!res.ok) return;
 
-    router.push("/app");
-  }
+  router.push("/app");
+}
 
   function handleEditChannel() {
     const channel = contextMenu?.channel;
@@ -754,6 +756,14 @@ function handleInvitePeople() {
             serverName={server?.name}
             onClose={() => setShowInviteModal(false)}
         />
+        )}
+
+        {showEditServerModal && (
+            <EditServerModal
+                server={server}
+                onClose={() => setShowEditServerModal(false)}
+                onUpdated={(updatedServer) => setServer(updatedServer)}
+            />
         )}
     </>
   );
