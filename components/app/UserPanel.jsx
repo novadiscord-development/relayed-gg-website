@@ -18,6 +18,7 @@ export default function UserPanel() {
 
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState("online");
+  const [customStatus, setCustomStatus] = useState("");
 
   const user = session?.user;
 
