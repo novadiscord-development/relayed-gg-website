@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import {
   Plus,
@@ -11,19 +12,24 @@ import {
 } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 
-
 export default function ChatArea() {
   const router = useRouter();
   const { serverId, channelId } = router.query;
+  const { data: session } = useSession();
 
   const bottomRef = useRef(null);
+  const inputRef = useRef(null);
   const notificationAudioRef = useRef(null);
 
   const [channel, setChannel] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [members, setMembers] = useState([]);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [showMentions, setShowMentions] = useState(false);
 
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState("");
@@ -33,6 +39,9 @@ export default function ChatArea() {
 
     loadChannel();
     loadMessages();
+    loadMembers();
+
+    setTimeout(() => inputRef.current?.focus(), 100);
   }, [serverId, channelId]);
 
   useEffect(() => {
@@ -41,20 +50,18 @@ export default function ChatArea() {
     const pusherClient = getPusherClient();
     const pusherChannel = pusherClient.subscribe(`channel-${channelId}`);
 
-function handleNewMessage(message) {
-  setMessages((prev) => {
-    const exists = prev.some((item) => item._id === message._id);
-    if (exists) return prev;
+    function handleNewMessage(message) {
+      setMessages((prev) => {
+        const exists = prev.some((item) => item._id === message._id);
+        if (exists) return prev;
 
-    if (document.hidden) {
-      notificationAudioRef.current
-        ?.play()
-        .catch(() => {});
+        if (shouldPlayPing(message)) {
+          notificationAudioRef.current?.play().catch(() => {});
+        }
+
+        return [...prev, message];
+      });
     }
-
-    return [...prev, message];
-  });
-}
 
     function handleUpdatedMessage(updatedMessage) {
       setMessages((prev) =>
@@ -80,7 +87,7 @@ function handleNewMessage(message) {
       pusherChannel.unbind("message:delete", handleDeletedMessage);
       pusherClient.unsubscribe(`channel-${channelId}`);
     };
-  }, [channelId]);
+  }, [channelId, session?.user?.username, session?.user?.id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -95,6 +102,15 @@ function handleNewMessage(message) {
     );
 
     setChannel(currentChannel || null);
+  }
+
+  async function loadMembers() {
+    const res = await fetch(`/api/servers/get-members?serverId=${serverId}`);
+    const data = await res.json();
+
+    if (res.ok) {
+      setMembers(data.members || []);
+    }
   }
 
   async function loadMessages() {
@@ -114,6 +130,54 @@ function handleNewMessage(message) {
     }
   }
 
+  function shouldPlayPing(message) {
+    if (!message?.content || message.system) return false;
+
+    const authorId = message.authorId?._id || message.authorId;
+    if (authorId?.toString?.() === session?.user?.id) return false;
+
+    const username = session?.user?.username;
+    if (!username) return false;
+
+    const mentionRegex = new RegExp(`(^|\\s)@${username}(\\s|$)`, "i");
+    return mentionRegex.test(message.content);
+  }
+
+  function handleContentChange(e) {
+    const value = e.target.value;
+    setContent(value);
+
+    const match = value.match(/(^|\s)@([a-zA-Z0-9_.-]*)$/);
+
+    if (match) {
+      setMentionQuery(match[2].toLowerCase());
+      setShowMentions(true);
+    } else {
+      setShowMentions(false);
+      setMentionQuery("");
+    }
+  }
+
+  const pingableMembers = members
+    .filter((member) => member.userId?.username)
+    .filter((member) =>
+      member.userId.username.toLowerCase().includes(mentionQuery)
+    )
+    .slice(0, 8);
+
+  function insertMention(member) {
+    const username = member.userId.username;
+
+    setContent((prev) =>
+      prev.replace(/(^|\s)@([a-zA-Z0-9_.-]*)$/, `$1@${username} `)
+    );
+
+    setShowMentions(false);
+    setMentionQuery("");
+
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
   async function sendMessage(e) {
     e.preventDefault();
 
@@ -124,6 +188,7 @@ function handleNewMessage(message) {
     try {
       setSending(true);
       setContent("");
+      setShowMentions(false);
 
       const res = await fetch("/api/messages/send-message", {
         method: "POST",
@@ -148,6 +213,8 @@ function handleNewMessage(message) {
         if (exists) return prev;
         return [...prev, data.message];
       });
+
+      setTimeout(() => inputRef.current?.focus(), 0);
     } catch (error) {
       console.error("SEND_MESSAGE_ERROR", error);
       setContent(messageContent);
@@ -218,9 +285,12 @@ function handleNewMessage(message) {
   }
 
   return (
-    
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
+    <section
+      onClick={() => inputRef.current?.focus()}
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]"
+    >
       <audio ref={notificationAudioRef} src="/sounds/ping.mp3" preload="auto" />
+
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <div className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600/20">
@@ -250,16 +320,11 @@ function handleNewMessage(message) {
 
               if (message.system) {
                 return (
-                  <div
-                    key={message._id}
-                    className="flex items-center gap-3 py-2"
-                  >
+                  <div key={message._id} className="flex items-center gap-3 py-2">
                     <div className="h-px flex-1 bg-white/10" />
-
                     <span className="max-w-[70%] text-center text-sm text-slate-500">
                       {message.content}
                     </span>
-
                     <div className="h-px flex-1 bg-white/10" />
                   </div>
                 );
@@ -275,19 +340,21 @@ function handleNewMessage(message) {
                   {!isEditing && (
                     <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
                       <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => {
                           setEditingMessage(message);
                           setEditContent(message.content);
                         }}
-                        title="Edit Message"
                         className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
                       >
                         <Pencil size={16} />
                       </button>
 
                       <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleDeleteMessage(message)}
-                        title="Delete Message"
                         className="p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
                       >
                         <Trash2 size={16} />
@@ -336,9 +403,7 @@ function handleNewMessage(message) {
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                              cancelEdit();
-                            }
+                            if (e.key === "Escape") cancelEdit();
 
                             if (e.key === "Enter" && !e.shiftKey) {
                               e.preventDefault();
@@ -386,19 +451,56 @@ function handleNewMessage(message) {
 
       <form
         onSubmit={sendMessage}
-        className="shrink-0 border-t border-white/10 bg-[#080b18] p-4"
+        className="relative shrink-0 border-t border-white/10 bg-[#080b18] p-4"
       >
+        {showMentions && pingableMembers.length > 0 && (
+          <div className="absolute bottom-[86px] left-4 right-4 max-h-72 overflow-y-auto rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
+            {pingableMembers.map((member) => {
+              const user = member.userId;
+
+              return (
+                <button
+                  key={member._id}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => insertMention(member)}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-white/[0.06]"
+                >
+                  <Image
+                    src={user?.avatar || "/logo.png"}
+                    alt={user?.username || "User"}
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 rounded-full"
+                  />
+
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">
+                      {user?.username}
+                    </p>
+                    <p className="text-xs capitalize text-slate-500">
+                      @{user?.username}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-300 hover:bg-violet-600 hover:text-white"
           >
             <Plus size={18} />
           </button>
 
           <input
+            ref={inputRef}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={handleContentChange}
             disabled={sending || !!editingMessage}
             placeholder={`Message #${channel?.name || "channel"}`}
             className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
