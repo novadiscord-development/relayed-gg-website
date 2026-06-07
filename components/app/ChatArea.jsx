@@ -262,6 +262,7 @@ export default function ChatArea() {
 
   async function handleDeleteMessage(message) {
     const confirmed = confirm("Delete this message?");
+
     if (!confirmed) {
       focusInput();
       return;
@@ -352,21 +353,34 @@ export default function ChatArea() {
             No messages yet. Start the conversation.
           </p>
         ) : (
-          <div className="space-y-2">
-            {messages.map((message) => {
+          <div className="space-y-0.5">
+            {messages.map((message, index) => {
               const author = message.authorId;
               const isEditing = editingMessage?._id === message._id;
+
+              const previousMessage = messages[index - 1];
+              const previousAuthorId =
+                previousMessage?.authorId?._id || previousMessage?.authorId;
+              const currentAuthorId = author?._id || author;
+
+              const grouped =
+                previousMessage &&
+                !previousMessage.system &&
+                !message.system &&
+                previousAuthorId?.toString?.() === currentAuthorId?.toString?.();
 
               if (message.system) {
                 return (
                   <div
                     key={message._id}
-                    className="flex items-center gap-3 py-2"
+                    className="flex items-center gap-3 py-3"
                   >
                     <div className="h-px flex-1 bg-white/10" />
+
                     <span className="max-w-[70%] text-center text-sm text-slate-500">
                       {message.content}
                     </span>
+
                     <div className="h-px flex-1 bg-white/10" />
                   </div>
                 );
@@ -375,9 +389,9 @@ export default function ChatArea() {
               return (
                 <div
                   key={message._id}
-                  className={`group relative flex gap-4 rounded-lg px-2 py-2 transition ${
-                    isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"
-                  }`}
+                  className={`group relative flex gap-4 rounded-lg px-2 transition ${
+                    grouped ? "py-0.5" : "py-2"
+                  } ${isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"}`}
                 >
                   {!isEditing && (
                     <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
@@ -404,43 +418,53 @@ export default function ChatArea() {
                     </div>
                   )}
 
-                  <Image
-                    src={author?.avatar || "/logo.png"}
-                    alt={author?.username || "User"}
-                    width={44}
-                    height={44}
-                    className="h-11 w-11 rounded-full"
-                  />
+                  {grouped ? (
+                    <div className="w-11 shrink-0 pt-1 text-right text-[10px] text-slate-600 opacity-0 transition group-hover:opacity-100">
+                      {formatTime(message.createdAt)}
+                    </div>
+                  ) : (
+                    <Image
+                      src={author?.avatar || "/logo.png"}
+                      alt={author?.username || "User"}
+                      width={44}
+                      height={44}
+                      className="h-11 w-11 rounded-full"
+                    />
+                  )}
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-violet-300">
-                        {author?.username || "Unknown User"}
-                      </span>
-
-                      {author?.isStaff && (
-                        <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-black">
-                          STAFF
+                    {!grouped && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-violet-300">
+                          {author?.username || "Unknown User"}
                         </span>
-                      )}
 
-                      {author?.isAdmin && (
-                        <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-black">
-                          ADMIN
+                        {author?.isStaff && (
+                          <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-black">
+                            STAFF
+                          </span>
+                        )}
+
+                        {author?.isAdmin && (
+                          <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-black">
+                            ADMIN
+                          </span>
+                        )}
+
+                        <span className="text-xs text-slate-500">
+                          {formatTime(message.createdAt)}
                         </span>
-                      )}
 
-                      <span className="text-xs text-slate-500">
-                        {formatTime(message.createdAt)}
-                      </span>
-
-                      {message.edited && !isEditing && (
-                        <span className="text-xs text-slate-500">edited</span>
-                      )}
-                    </div>
+                        {message.edited && !isEditing && (
+                          <span className="text-xs text-slate-500">
+                            edited
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {isEditing ? (
-                      <div className="mt-2">
+                      <div className={grouped ? "mt-0" : "mt-2"}>
                         <textarea
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
@@ -477,8 +501,18 @@ export default function ChatArea() {
                         </p>
                       </div>
                     ) : (
-                      <p className="mt-1 whitespace-pre-wrap break-words text-slate-100">
+                      <p
+                        className={`whitespace-pre-wrap break-words text-slate-100 ${
+                          grouped ? "mt-0" : "mt-1"
+                        }`}
+                      >
                         {renderMessageContent(message.content)}
+
+                        {message.edited && grouped && (
+                          <span className="ml-2 text-xs text-slate-500">
+                            edited
+                          </span>
+                        )}
                       </p>
                     )}
                   </div>
