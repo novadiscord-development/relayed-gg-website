@@ -86,8 +86,13 @@ export default function ServerBar() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="text-lg font-black">
-                  {server.name?.charAt(0)?.toUpperCase()}
+                <span className="text-sm font-black tracking-wide">
+                  {server.name
+                    ?.split(" ")
+                    .slice(0, 2)
+                    .map((word) => word[0])
+                    .join("")
+                    .toUpperCase()}
                 </span>
               )}
             </button>
