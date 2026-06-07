@@ -9,37 +9,9 @@ export default function NotificationListener() {
   const router = useRouter();
   const { data: session } = useSession();
 
-  const audioRef = useRef(null);
-  const audioUnlockedRef = useRef(false);
   const subscribedChannelsRef = useRef(new Set());
 
   const { addUnread, addMention, clearChannel } = useNotifications();
-
-  useEffect(() => {
-    function unlockAudio() {
-      if (audioUnlockedRef.current) return;
-
-      const audio = audioRef.current;
-      if (!audio) return;
-
-      audio
-        .play()
-        .then(() => {
-          audio.pause();
-          audio.currentTime = 0;
-          audioUnlockedRef.current = true;
-        })
-        .catch(() => {});
-    }
-
-    window.addEventListener("click", unlockAudio);
-    window.addEventListener("keydown", unlockAudio);
-
-    return () => {
-      window.removeEventListener("click", unlockAudio);
-      window.removeEventListener("keydown", unlockAudio);
-    };
-  }, []);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -133,16 +105,6 @@ export default function NotificationListener() {
     }
   }
 
-  function playPingSound() {
-    if (!audioUnlockedRef.current) return;
-
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
-  }
-
   function handleIncomingMessage({ serverId, channelId, message }) {
     const activeServerId = router.query.serverId;
     const activeChannelId = router.query.channelId;
@@ -156,11 +118,8 @@ export default function NotificationListener() {
 
     if (viewingChannel) return;
 
-    const mentioned = messageMentionsMe(message);
-
-    if (mentioned) {
+    if (messageMentionsMe(message)) {
       addMention(serverId, channelId);
-      playPingSound();
       return;
     }
 
@@ -168,7 +127,7 @@ export default function NotificationListener() {
   }
 
   function messageMentionsMe(message) {
-    const username = session?.user?.username;
+    const username = session?.user?.username || session?.user?.name;
 
     if (!message?.content || !username) return false;
 
@@ -180,5 +139,5 @@ export default function NotificationListener() {
     ).test(message.content);
   }
 
-  return <audio ref={audioRef} src="/sounds/ping.mp3" preload="auto" />;
+  return null;
 }

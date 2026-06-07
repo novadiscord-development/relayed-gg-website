@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useSession } from "next-auth/react";
@@ -11,6 +12,11 @@ const NotificationContext = createContext(null);
 
 export function NotificationProvider({ children }) {
   const { data: session } = useSession();
+
+  const audioRef = useRef(null);
+  const audioUnlockedRef = useRef(false);
+  const previousMentionTotalRef = useRef(0);
+
   const [notifications, setNotifications] = useState({});
   const [loaded, setLoaded] = useState(false);
 
@@ -18,6 +24,7 @@ export function NotificationProvider({ children }) {
     if (!session?.user?.id) {
       setNotifications({});
       setLoaded(false);
+      previousMentionTotalRef.current = 0;
       return;
     }
 
@@ -25,14 +32,40 @@ export function NotificationProvider({ children }) {
   }, [session?.user?.id]);
 
   useEffect(() => {
-  if (!session?.user?.id) return;
+    if (!session?.user?.id) return;
 
-  const interval = setInterval(() => {
-    loadNotifications();
-  }, 1000);
+    const interval = setInterval(() => {
+      loadNotifications();
+    }, 3000);
 
-  return () => clearInterval(interval);
-}, [session?.user?.id]);
+    return () => clearInterval(interval);
+  }, [session?.user?.id, loaded]);
+
+  useEffect(() => {
+    function unlockAudio() {
+      if (audioUnlockedRef.current) return;
+
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      audio
+        .play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audioUnlockedRef.current = true;
+        })
+        .catch(() => {});
+    }
+
+    window.addEventListener("click", unlockAudio);
+    window.addEventListener("keydown", unlockAudio);
+
+    return () => {
+      window.removeEventListener("click", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
 
   async function loadNotifications() {
     try {
@@ -59,6 +92,27 @@ export function NotificationProvider({ children }) {
           lastMessageAt: notification.lastMessageAt || null,
         };
       });
+
+      const nextMentionTotal = Object.values(nextNotifications).reduce(
+        (serverTotal, channels) =>
+          serverTotal +
+          Object.values(channels).reduce(
+            (channelTotal, item) => channelTotal + (item.mentions || 0),
+            0
+          ),
+        0
+      );
+
+      if (
+        loaded &&
+        nextMentionTotal > previousMentionTotalRef.current &&
+        audioUnlockedRef.current
+      ) {
+        audioRef.current.currentTime = 0;
+        audioRef.current?.play().catch(() => {});
+      }
+
+      previousMentionTotalRef.current = nextMentionTotal;
 
       setNotifications(nextNotifications);
       setLoaded(true);
@@ -99,6 +153,11 @@ export function NotificationProvider({ children }) {
         },
       },
     }));
+
+    if (audioUnlockedRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current?.play().catch(() => {});
+    }
   }
 
   async function clearChannel(serverId, channelId) {
@@ -124,10 +183,7 @@ export function NotificationProvider({ children }) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        serverId,
-        channelId,
-      }),
+      body: JSON.stringify({ serverId, channelId }),
     }).catch(() => {});
   }
 
@@ -145,9 +201,7 @@ export function NotificationProvider({ children }) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        serverId,
-      }),
+      body: JSON.stringify({ serverId }),
     }).catch(() => {});
   }
 
@@ -190,6 +244,7 @@ export function NotificationProvider({ children }) {
 
   return (
     <NotificationContext.Provider value={value}>
+      <audio ref={audioRef} src="/sounds/ping.mp3" preload="auto" />
       {children}
     </NotificationContext.Provider>
   );
