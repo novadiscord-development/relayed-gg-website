@@ -6,13 +6,14 @@ import {
   Plus,
   Gift,
   Smile,
-  Sticker,
   Pencil,
   Trash2,
   Reply,
   X,
+  PanelsTopLeft,
 } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
+import CreateEmbedModal from "@/components/modals/CreateEmbedModal";
 
 export default function ChatArea() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function ChatArea() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showEmbedModal, setShowEmbedModal] = useState(false);
 
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -428,7 +430,7 @@ export default function ChatArea() {
     });
   }
 
-  function renderMessageContent(text) {
+  function renderMessageContent(text = "") {
     const username = session?.user?.username;
     const parts = text.split(/(@[a-zA-Z0-9_.-]+)/g);
 
@@ -467,6 +469,70 @@ export default function ChatArea() {
         <span className="truncate text-slate-500">
           {reply.content || "Original message unavailable"}
         </span>
+      </div>
+    );
+  }
+
+  function EmbedCard({ embed }) {
+    if (!embed) return null;
+
+    return (
+      <div
+        className="mt-2 max-w-xl overflow-hidden rounded-xl border border-white/10 bg-white/[0.035]"
+        style={{
+          borderLeft: `4px solid ${embed.color || "#7c3aed"}`,
+        }}
+      >
+        <div className="p-4">
+          <div className="flex gap-3">
+            <div className="min-w-0 flex-1">
+              {embed.title && (
+                <p className="break-words text-sm font-black text-white">
+                  {embed.url ? (
+                    <a
+                      href={embed.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-300 hover:underline"
+                    >
+                      {embed.title}
+                    </a>
+                  ) : (
+                    embed.title
+                  )}
+                </p>
+              )}
+
+              {embed.description && (
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-5 text-slate-300">
+                  {embed.description}
+                </p>
+              )}
+            </div>
+
+            {embed.thumbnail && (
+              <img
+                src={embed.thumbnail}
+                alt=""
+                className="h-16 w-16 shrink-0 rounded-lg object-cover"
+              />
+            )}
+          </div>
+
+          {embed.image && (
+            <img
+              src={embed.image}
+              alt=""
+              className="mt-4 max-h-72 w-full rounded-xl object-cover"
+            />
+          )}
+
+          {embed.footer && (
+            <p className="mt-4 truncate text-xs text-slate-500">
+              {embed.footer}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -716,15 +782,30 @@ export default function ChatArea() {
                         </p>
                       </div>
                     ) : (
-                      <p className="whitespace-pre-wrap break-words text-slate-100 leading-[1.375rem]">
-                        {renderMessageContent(message.content)}
+                      <>
+                        {message.content && (
+                          <p className="whitespace-pre-wrap break-words text-slate-100 leading-[1.375rem]">
+                            {renderMessageContent(message.content)}
 
-                        {message.edited && grouped && (
-                          <span className="ml-2 text-xs text-slate-500">
-                            edited
-                          </span>
+                            {message.edited && grouped && (
+                              <span className="ml-2 text-xs text-slate-500">
+                                edited
+                              </span>
+                            )}
+                          </p>
                         )}
-                      </p>
+
+                        {message.embeds?.length > 0 && (
+                          <div className="space-y-2">
+                            {message.embeds.map((embed, embedIndex) => (
+                              <EmbedCard
+                                key={`${message._id}-embed-${embedIndex}`}
+                                embed={embed}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -829,12 +910,43 @@ export default function ChatArea() {
           />
 
           <div className="flex shrink-0 items-center gap-3 text-slate-400">
-            <Gift size={19} className="hover:text-white" />
-            <Sticker size={19} className="hover:text-white" />
-            <Smile size={19} className="hover:text-white" />
+            <Gift
+              size={19}
+              className="cursor-pointer transition hover:text-white"
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowEmbedModal(true)}
+              className="transition hover:text-violet-300"
+              title="Create Embed"
+            >
+              <PanelsTopLeft size={18} />
+            </button>
+
+            <Smile
+              size={19}
+              className="cursor-pointer transition hover:text-white"
+            />
           </div>
         </div>
       </form>
+
+      <CreateEmbedModal
+        isOpen={showEmbedModal}
+        onClose={() => {
+          setShowEmbedModal(false);
+          focusInput();
+        }}
+        channelId={channelId}
+        onSent={(message) => {
+          setMessages((prev) => {
+            const exists = prev.some((item) => item._id === message._id);
+            if (exists) return prev;
+            return [...prev, message];
+          });
+        }}
+      />
     </section>
   );
 }
