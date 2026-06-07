@@ -9,6 +9,9 @@ import {
   Ban,
 } from "lucide-react";
 
+import Image from "next/image";
+import { Search } from "lucide-react";
+
 const tabs = [
   { id: "overview", label: "Overview", icon: Settings },
   { id: "members", label: "Members", icon: Users },
