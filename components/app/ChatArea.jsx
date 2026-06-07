@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { Plus, Gift, Smile, Sticker } from "lucide-react";
+import { pusherClient } from "@/lib/pusher";
 
 export default function ChatArea() {
   const router = useRouter();
@@ -23,6 +24,29 @@ export default function ChatArea() {
   }, [serverId, channelId]);
 
   useEffect(() => {
+    if (!channelId) return;
+
+    const pusherChannel = pusherClient.subscribe(`channel-${channelId}`);
+
+    function handleNewMessage(message) {
+      setMessages((prev) => {
+        const exists = prev.some((item) => item._id === message._id);
+
+        if (exists) return prev;
+
+        return [...prev, message];
+      });
+    }
+
+    pusherChannel.bind("message:new", handleNewMessage);
+
+    return () => {
+      pusherChannel.unbind("message:new", handleNewMessage);
+      pusherClient.unsubscribe(`channel-${channelId}`);
+    };
+  }, [channelId]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -41,7 +65,10 @@ export default function ChatArea() {
     try {
       setLoading(true);
 
-      const res = await fetch(`/api/messages/get-messages?channelId=${channelId}`);
+      const res = await fetch(
+        `/api/messages/get-messages?channelId=${channelId}`
+      );
+
       const data = await res.json();
 
       setMessages(data.messages || []);
@@ -57,8 +84,11 @@ export default function ChatArea() {
 
     if (!content.trim() || sending) return;
 
+    const messageContent = content;
+
     try {
       setSending(true);
+      setContent("");
 
       const res = await fetch("/api/messages/send-message", {
         method: "POST",
@@ -67,18 +97,27 @@ export default function ChatArea() {
         },
         body: JSON.stringify({
           channelId,
-          content,
+          content: messageContent,
         }),
       });
 
       const data = await res.json();
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        setContent(messageContent);
+        return;
+      }
 
-      setMessages((prev) => [...prev, data.message]);
-      setContent("");
+      setMessages((prev) => {
+        const exists = prev.some((item) => item._id === data.message._id);
+
+        if (exists) return prev;
+
+        return [...prev, data.message];
+      });
     } catch (error) {
       console.error("SEND_MESSAGE_ERROR", error);
+      setContent(messageContent);
     } finally {
       setSending(false);
     }

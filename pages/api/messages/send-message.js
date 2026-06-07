@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
+import { pusherServer } from "@/lib/pusher";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -55,6 +56,12 @@ export default async function handler(req, res) {
     message = await message.populate(
       "authorId",
       "username avatar isStaff isAdmin badges"
+    );
+
+    await pusherServer.trigger(
+      `channel-${channelId}`,
+      "message:new",
+      message
     );
 
     return res.status(201).json({ message });
