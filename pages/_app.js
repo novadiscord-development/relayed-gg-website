@@ -5,12 +5,11 @@ import NotificationListener from "@/components/providers/NotificationListener";
 
 export default function App({ Component, pageProps }) {
   return (
-    <SessionProvider session={pageProps.session}>
-    <NotificationProvider>
-      <NotificationListener />
-      <Component {...pageProps} />
-
-    </NotificationProvider>
-    </SessionProvider>
+<SessionProvider session={session}>
+  <NotificationProvider>
+    <NotificationListener />
+    <Component {...pageProps} />
+  </NotificationProvider>
+</SessionProvider>
   );
 }
