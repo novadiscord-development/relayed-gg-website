@@ -353,7 +353,7 @@ export default function ChatArea() {
             No messages yet. Start the conversation.
           </p>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-0">
             {messages.map((message, index) => {
               const author = message.authorId;
               const isEditing = editingMessage?._id === message._id;
@@ -390,7 +390,7 @@ export default function ChatArea() {
                 <div
                   key={message._id}
                   className={`group relative flex gap-4 rounded-lg px-2 transition ${
-                    grouped ? "py-0.5" : "py-2"
+                    grouped ? "py-[1px]" : "py-2"
                   } ${isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"}`}
                 >
                   {!isEditing && (
@@ -419,7 +419,7 @@ export default function ChatArea() {
                   )}
 
                   {grouped ? (
-                    <div className="w-11 shrink-0 pt-1 text-right text-[10px] text-slate-600 opacity-0 transition group-hover:opacity-100">
+                    <div className="w-10 shrink-0 pt-1 text-right text-[10px] text-slate-600 opacity-0 transition group-hover:opacity-100">
                       {formatTime(message.createdAt)}
                     </div>
                   ) : (
@@ -503,7 +503,7 @@ export default function ChatArea() {
                     ) : (
                       <p
                         className={`whitespace-pre-wrap break-words text-slate-100 ${
-                          grouped ? "mt-0" : "mt-1"
+                            grouped ? "" : "mt-1"
                         }`}
                       >
                         {renderMessageContent(message.content)}
