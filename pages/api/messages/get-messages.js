@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
     await connectDB();
 
-    const { channelId } = req.query;
+    const { channelId, before } = req.query;
 
     if (!channelId) {
       return res.status(400).json({ message: "Channel ID is required" });
@@ -42,10 +42,18 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You are not in this server" });
     }
 
-    const messages = await Message.find({
+    const query = {
       channelId,
       deleted: false,
-    })
+    };
+
+    if (before) {
+      query.createdAt = {
+        $lt: new Date(before),
+      };
+    }
+
+    const messages = await Message.find(query)
       .populate("authorId", "username avatar isStaff isAdmin badges")
       .populate({
         path: "replyToId",
@@ -55,10 +63,16 @@ export default async function handler(req, res) {
           select: "username avatar isStaff isAdmin badges",
         },
       })
-      .sort({ createdAt: 1 })
-      .limit(100);
+      .sort({ createdAt: -1 })
+      .limit(50);
 
-    return res.status(200).json({ messages });
+    const orderedMessages = messages.reverse();
+
+    return res.status(200).json({
+      messages: orderedMessages,
+      hasMore: messages.length === 50,
+      oldestMessageAt: orderedMessages[0]?.createdAt || null,
+    });
   } catch (error) {
     console.error("GET_MESSAGES_ERROR", error);
     return res.status(500).json({ message: "Internal Server Error" });

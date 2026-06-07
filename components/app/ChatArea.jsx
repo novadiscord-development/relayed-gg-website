@@ -22,13 +22,19 @@ export default function ChatArea() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const notificationAudioRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   const [channel, setChannel] = useState(null);
   const [messages, setMessages] = useState([]);
   const [members, setMembers] = useState([]);
+  const [currentMember, setCurrentMember] = useState(null);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [oldestMessageAt, setOldestMessageAt] = useState(null);
 
   const [mentionQuery, setMentionQuery] = useState("");
   const [showMentions, setShowMentions] = useState(false);
@@ -41,8 +47,12 @@ export default function ChatArea() {
   useEffect(() => {
     if (!serverId || !channelId) return;
 
+    setMessages([]);
+    setHasMoreMessages(true);
+    setOldestMessageAt(null);
+
     loadChannel();
-    loadMessages();
+    loadMessages(true);
     loadMembers();
 
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -94,7 +104,34 @@ export default function ChatArea() {
   }, [channelId, session?.user?.username, session?.user?.id]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    async function handleScroll() {
+      if (container.scrollTop > 150) return;
+      if (!hasMoreMessages || loadingMore || loading) return;
+
+      const previousHeight = container.scrollHeight;
+
+      await loadMessages(false);
+
+      requestAnimationFrame(() => {
+        const newHeight = container.scrollHeight;
+        container.scrollTop += newHeight - previousHeight;
+      });
+    }
+
+    container.addEventListener("scroll", handleScroll);
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, [hasMoreMessages, loadingMore, loading, oldestMessageAt, channelId]);
+
+  useEffect(() => {
+    if (!loadingMore) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   function focusInput() {
@@ -123,23 +160,44 @@ export default function ChatArea() {
     const res = await fetch(`/api/servers/get-members?serverId=${serverId}`);
     const data = await res.json();
 
-    if (res.ok) setMembers(data.members || []);
+    if (res.ok) {
+      setMembers(data.members || []);
+      setCurrentMember(data.currentMember || null);
+    }
   }
 
-  async function loadMessages() {
+  async function loadMessages(initial = true) {
     try {
-      setLoading(true);
+      if (initial) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
 
-      const res = await fetch(
-        `/api/messages/get-messages?channelId=${channelId}`
-      );
+      let url = `/api/messages/get-messages?channelId=${channelId}`;
 
+      if (!initial && oldestMessageAt) {
+        url += `&before=${encodeURIComponent(oldestMessageAt)}`;
+      }
+
+      const res = await fetch(url);
       const data = await res.json();
-      setMessages(data.messages || []);
+
+      if (!res.ok) return;
+
+      if (initial) {
+        setMessages(data.messages || []);
+      } else {
+        setMessages((prev) => [...(data.messages || []), ...prev]);
+      }
+
+      setHasMoreMessages(Boolean(data.hasMore));
+      setOldestMessageAt(data.oldestMessageAt || null);
     } catch (error) {
       console.error("LOAD_MESSAGES_ERROR", error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }
 
@@ -381,7 +439,10 @@ export default function ChatArea() {
     >
       <audio ref={notificationAudioRef} src="/sounds/ping.mp3" preload="auto" />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+      <div
+        ref={messagesContainerRef}
+        className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
+      >
         <div className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600/20">
             <span className="text-4xl">#</span>
@@ -404,6 +465,18 @@ export default function ChatArea() {
           </p>
         ) : (
           <div className="space-y-0">
+            {loadingMore && (
+              <p className="py-3 text-center text-xs text-slate-500">
+                Loading older messages...
+              </p>
+            )}
+
+            {!hasMoreMessages && messages.length > 0 && (
+              <p className="py-3 text-center text-xs text-slate-600">
+                Beginning of channel
+              </p>
+            )}
+
             {messages.map((message, index) => {
               const author = message.authorId;
               const isEditing = editingMessage?._id === message._id;
@@ -415,6 +488,17 @@ export default function ChatArea() {
                 !message.system &&
                 !message.replyToId &&
                 getAuthorId(previousMessage) === getAuthorId(message);
+
+              const isAuthor = getAuthorId(message) === session?.user?.id;
+
+              const canModerateMessages = [
+                "owner",
+                "admin",
+                "moderator",
+              ].includes(currentMember?.role);
+
+              const canEditMessage = isAuthor;
+              const canDeleteMessage = isAuthor || canModerateMessages;
 
               if (message.system) {
                 return (
@@ -451,27 +535,31 @@ export default function ChatArea() {
                         <Reply size={16} />
                       </button>
 
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setEditingMessage(message);
-                          setEditContent(message.content);
-                          setReplyingTo(null);
-                        }}
-                        className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                      >
-                        <Pencil size={16} />
-                      </button>
+                      {canEditMessage && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setEditingMessage(message);
+                            setEditContent(message.content);
+                            setReplyingTo(null);
+                          }}
+                          className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleDeleteMessage(message)}
-                        className="p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canDeleteMessage && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleDeleteMessage(message)}
+                          className="p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   )}
 
