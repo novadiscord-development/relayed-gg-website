@@ -117,7 +117,6 @@ export default function ChatArea() {
       });
 
       clearTimeout(typingTimeoutsRef.current[user.userId]);
-
       typingTimeoutsRef.current[user.userId] = setTimeout(() => {
         removeTypingUser(user.userId);
       }, 3000);
@@ -145,7 +144,14 @@ export default function ChatArea() {
     if (!container) return;
 
     async function handleScroll() {
-      if (container.scrollTop > 150 || !hasMoreMessages || loadingMore || loading) return;
+      if (
+        container.scrollTop > 150 ||
+        !hasMoreMessages ||
+        loadingMore ||
+        loading
+      ) {
+        return;
+      }
 
       const previousHeight = container.scrollHeight;
       await loadMessages(false);
@@ -160,13 +166,21 @@ export default function ChatArea() {
   }, [hasMoreMessages, loadingMore, loading, oldestMessageAt, channelId]);
 
   useEffect(() => {
-    if (!loadingMore) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!loadingMore) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   function focusInput() {
-    if (!editingMessage && !showEmbedComposer) {
-      requestAnimationFrame(() => inputRef.current?.focus());
+    if (
+      editingMessage ||
+      showEmbedComposer ||
+      document.activeElement === inputRef.current
+    ) {
+      return;
     }
+
+    requestAnimationFrame(() => inputRef.current?.focus());
   }
 
   function removeTypingUser(userId) {
@@ -201,6 +215,7 @@ export default function ChatArea() {
   async function loadChannel() {
     const res = await fetch(`/api/channels/get-channels?serverId=${serverId}`);
     const data = await res.json();
+
     setChannel(data.channels?.find((item) => item._id === channelId) || null);
   }
 
@@ -225,6 +240,7 @@ export default function ChatArea() {
 
       const res = await fetch(url);
       const data = await res.json();
+
       if (!res.ok) return;
 
       setMessages((prev) =>
@@ -336,7 +352,9 @@ export default function ChatArea() {
   }
 
   async function sendEmbed() {
-    if (sendingEmbed || (!embed.title.trim() && !embed.description.trim())) return;
+    if (sendingEmbed || (!embed.title.trim() && !embed.description.trim())) {
+      return;
+    }
 
     try {
       setSendingEmbed(true);
@@ -348,6 +366,7 @@ export default function ChatArea() {
       });
 
       const data = await res.json();
+
       if (!res.ok) return;
 
       setMessages((prev) =>
@@ -372,10 +391,14 @@ export default function ChatArea() {
     const res = await fetch("/api/messages/update", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messageId: editingMessage._id, content: editContent }),
+      body: JSON.stringify({
+        messageId: editingMessage._id,
+        content: editContent,
+      }),
     });
 
     const data = await res.json();
+
     if (!res.ok) return;
 
     setMessages((prev) =>
@@ -404,7 +427,11 @@ export default function ChatArea() {
     if (!res.ok) return;
 
     setMessages((prev) => prev.filter((item) => item._id !== message._id));
-    if (replyingTo?._id === message._id) setReplyingTo(null);
+
+    if (replyingTo?._id === message._id) {
+      setReplyingTo(null);
+    }
+
     focusInput();
   }
 
@@ -543,6 +570,7 @@ export default function ChatArea() {
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.15s]" />
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" />
         </div>
+
         <span>
           <span className="font-semibold text-slate-300">{text}</span>
           <span className="text-slate-500">...</span>
@@ -555,7 +583,10 @@ export default function ChatArea() {
     if (!showEmbedComposer) return null;
 
     return (
-      <div className="mb-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4 shadow-xl">
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="mb-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4 shadow-xl"
+      >
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="text-sm font-black text-white">Create Embed</p>
@@ -625,7 +656,9 @@ export default function ChatArea() {
 
             <input
               value={embed.thumbnail}
-              onChange={(e) => setEmbed({ ...embed, thumbnail: e.target.value })}
+              onChange={(e) =>
+                setEmbed({ ...embed, thumbnail: e.target.value })
+              }
               placeholder="Thumbnail URL"
               className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500"
             />
@@ -640,7 +673,9 @@ export default function ChatArea() {
             <button
               type="button"
               onClick={sendEmbed}
-              disabled={sendingEmbed || (!embed.title.trim() && !embed.description.trim())}
+              disabled={
+                sendingEmbed || (!embed.title.trim() && !embed.description.trim())
+              }
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-black text-white transition hover:bg-violet-500 disabled:opacity-50"
             >
               <Send size={16} />
@@ -661,10 +696,7 @@ export default function ChatArea() {
   }
 
   return (
-    <section
-      onMouseDown={focusInput}
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]"
-    >
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
       <div
         ref={messagesContainerRef}
         className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
@@ -707,6 +739,7 @@ export default function ChatArea() {
               const author = message.authorId;
               const isEditing = editingMessage?._id === message._id;
               const previousMessage = messages[index - 1];
+
               const grouped =
                 previousMessage &&
                 !previousMessage.system &&
@@ -715,15 +748,18 @@ export default function ChatArea() {
                 getAuthorId(previousMessage) === getAuthorId(message);
 
               const isAuthor = getAuthorId(message) === session?.user?.id;
-              const canModerateMessages = ["owner", "admin", "moderator"].includes(
-                currentMember?.role
-              );
-              const canEditMessage = isAuthor;
-              const canDeleteMessage = isAuthor || canModerateMessages;
+              const canModerateMessages = [
+                "owner",
+                "admin",
+                "moderator",
+              ].includes(currentMember?.role);
 
               if (message.system) {
                 return (
-                  <div key={message._id} className="flex items-center gap-3 py-3">
+                  <div
+                    key={message._id}
+                    className="flex items-center gap-3 py-3"
+                  >
                     <div className="h-px flex-1 bg-white/10" />
                     <span className="max-w-[70%] text-center text-sm text-slate-500">
                       {message.content}
@@ -751,7 +787,7 @@ export default function ChatArea() {
                         <Reply size={16} />
                       </button>
 
-                      {canEditMessage && (
+                      {isAuthor && (
                         <button
                           type="button"
                           onMouseDown={(e) => e.preventDefault()}
@@ -766,7 +802,7 @@ export default function ChatArea() {
                         </button>
                       )}
 
-                      {canDeleteMessage && (
+                      {(isAuthor || canModerateMessages) && (
                         <button
                           type="button"
                           onMouseDown={(e) => e.preventDefault()}
@@ -794,7 +830,9 @@ export default function ChatArea() {
                   )}
 
                   <div className="min-w-0 flex-1">
-                    {message.replyToId && <ReplyPreview reply={message.replyToId} />}
+                    {message.replyToId && (
+                      <ReplyPreview reply={message.replyToId} />
+                    )}
 
                     {!grouped && (
                       <div className="flex flex-wrap items-center gap-2">
@@ -946,7 +984,6 @@ export default function ChatArea() {
                   {replyingTo.authorId?.username || "Unknown User"}
                 </span>
               </p>
-
               <p className="truncate text-sm text-slate-300">
                 {replyingTo.content}
               </p>
@@ -970,7 +1007,9 @@ export default function ChatArea() {
         <EmbedComposer />
 
         <div
-          onMouseDown={() => focusInput()}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) focusInput();
+          }}
           className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3"
         >
           <button
@@ -1005,9 +1044,7 @@ export default function ChatArea() {
                 type="button"
                 onClick={() => setShowEmbedComposer((prev) => !prev)}
                 className={`transition ${
-                  showEmbedComposer
-                    ? "text-violet-300"
-                    : "hover:text-violet-300"
+                  showEmbedComposer ? "text-violet-300" : "hover:text-violet-300"
                 }`}
                 title="Create Embed"
               >
