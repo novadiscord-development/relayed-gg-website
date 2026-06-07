@@ -109,6 +109,7 @@ export default function ChannelSidebar() {
   );
 
   const [server, setServer] = useState(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [membership, setMembership] = useState(null);
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
