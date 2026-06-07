@@ -1,9 +1,16 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
-import { Plus, Gift, Smile, Sticker, X } from "lucide-react";
+import {
+  Plus,
+  Gift,
+  Smile,
+  Sticker,
+  X,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
-import ContextMenu from "@/components/ui/ContextMenu";
 
 export default function ChatArea() {
   const router = useRouter();
@@ -17,7 +24,6 @@ export default function ChatArea() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
-  const [contextMenu, setContextMenu] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState("");
 
@@ -142,25 +148,6 @@ export default function ChatArea() {
     }
   }
 
-  function openMessageMenu(e, message) {
-    e.preventDefault();
-
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      message,
-    });
-  }
-
-  function handleEditMessage() {
-    const message = contextMenu?.message;
-    if (!message) return;
-
-    setEditingMessage(message);
-    setEditContent(message.content);
-    setContextMenu(null);
-  }
-
   async function handleSaveEdit() {
     if (!editingMessage || !editContent.trim()) return;
 
@@ -189,12 +176,7 @@ export default function ChatArea() {
     setEditContent("");
   }
 
-  async function handleDeleteMessage() {
-    const message = contextMenu?.message;
-    if (!message) return;
-
-    setContextMenu(null);
-
+  async function handleDeleteMessage(message) {
     const confirmed = confirm("Delete this message?");
     if (!confirmed) return;
 
@@ -210,9 +192,7 @@ export default function ChatArea() {
 
     if (!res.ok) return;
 
-    setMessages((prev) =>
-      prev.filter((item) => item._id !== message._id)
-    );
+    setMessages((prev) => prev.filter((item) => item._id !== message._id));
   }
 
   function formatTime(date) {
@@ -249,16 +229,36 @@ export default function ChatArea() {
               No messages yet. Start the conversation.
             </p>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-2">
               {messages.map((message) => {
                 const author = message.authorId;
 
                 return (
                   <div
                     key={message._id}
-                    onContextMenu={(e) => openMessageMenu(e, message)}
-                    className="group flex gap-4 rounded-lg px-2 py-1 hover:bg-white/[0.02]"
+                    className="group relative flex gap-4 rounded-lg px-2 py-2 transition hover:bg-white/[0.04]"
                   >
+                    <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
+                      <button
+                        onClick={() => {
+                          setEditingMessage(message);
+                          setEditContent(message.content);
+                        }}
+                        title="Edit Message"
+                        className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                      >
+                        <Pencil size={16} />
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteMessage(message)}
+                        title="Delete Message"
+                        className="p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+
                     <Image
                       src={author?.avatar || "/logo.png"}
                       alt={author?.username || "User"}
@@ -337,15 +337,6 @@ export default function ChatArea() {
           </div>
         </form>
       </section>
-
-      <ContextMenu
-        menu={contextMenu}
-        onClose={() => setContextMenu(null)}
-        onEdit={handleEditMessage}
-        onDelete={handleDeleteMessage}
-        editLabel="Edit Message"
-        deleteLabel="Delete Message"
-      />
 
       {editingMessage && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
