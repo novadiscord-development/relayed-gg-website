@@ -6,7 +6,6 @@ import {
   Gift,
   Smile,
   Sticker,
-  X,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -195,6 +194,11 @@ export default function ChatArea() {
     setMessages((prev) => prev.filter((item) => item._id !== message._id));
   }
 
+  function cancelEdit() {
+    setEditingMessage(null);
+    setEditContent("");
+  }
+
   function formatTime(date) {
     return new Date(date).toLocaleString([], {
       hour: "numeric",
@@ -205,39 +209,44 @@ export default function ChatArea() {
   }
 
   return (
-    <>
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-          <div className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600/20">
-              <span className="text-4xl">#</span>
-            </div>
-
-            <h2 className="text-3xl font-black">
-              Welcome to #{channel?.name || "channel"}!
-            </h2>
-
-            <p className="mt-2 text-slate-400">
-              This is the start of the #{channel?.name || "channel"} channel.
-            </p>
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600/20">
+            <span className="text-4xl">#</span>
           </div>
 
-          {loading ? (
-            <p className="text-sm text-slate-500">Loading messages...</p>
-          ) : messages.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No messages yet. Start the conversation.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {messages.map((message) => {
-                const author = message.authorId;
+          <h2 className="text-3xl font-black">
+            Welcome to #{channel?.name || "channel"}!
+          </h2>
 
-                return (
-                  <div
-                    key={message._id}
-                    className="group relative flex gap-4 rounded-lg px-2 py-2 transition hover:bg-white/[0.04]"
-                  >
+          <p className="mt-2 text-slate-400">
+            This is the start of the #{channel?.name || "channel"} channel.
+          </p>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-slate-500">Loading messages...</p>
+        ) : messages.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            No messages yet. Start the conversation.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {messages.map((message) => {
+              const author = message.authorId;
+              const isEditing = editingMessage?._id === message._id;
+
+              return (
+                <div
+                  key={message._id}
+                  className={`group relative flex gap-4 rounded-lg px-2 py-2 transition ${
+                    isEditing
+                      ? "bg-white/[0.05]"
+                      : "hover:bg-white/[0.04]"
+                  }`}
+                >
+                  {!isEditing && (
                     <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
                       <button
                         onClick={() => {
@@ -258,125 +267,126 @@ export default function ChatArea() {
                         <Trash2 size={16} />
                       </button>
                     </div>
+                  )}
 
-                    <Image
-                      src={author?.avatar || "/logo.png"}
-                      alt={author?.username || "User"}
-                      width={44}
-                      height={44}
-                      className="h-11 w-11 rounded-full"
-                    />
+                  <Image
+                    src={author?.avatar || "/logo.png"}
+                    alt={author?.username || "User"}
+                    width={44}
+                    height={44}
+                    className="h-11 w-11 rounded-full"
+                  />
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-violet-300">
-                          {author?.username || "Unknown User"}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-violet-300">
+                        {author?.username || "Unknown User"}
+                      </span>
+
+                      {author?.isStaff && (
+                        <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-black">
+                          STAFF
                         </span>
+                      )}
 
-                        {author?.isStaff && (
-                          <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-black">
-                            STAFF
-                          </span>
-                        )}
+                      {author?.isAdmin && (
+                        <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-black">
+                          ADMIN
+                        </span>
+                      )}
 
-                        {author?.isAdmin && (
-                          <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-black">
-                            ADMIN
-                          </span>
-                        )}
+                      <span className="text-xs text-slate-500">
+                        {formatTime(message.createdAt)}
+                      </span>
 
+                      {message.edited && !isEditing && (
                         <span className="text-xs text-slate-500">
-                          {formatTime(message.createdAt)}
+                          edited
                         </span>
+                      )}
+                    </div>
 
-                        {message.edited && (
-                          <span className="text-xs text-slate-500">
-                            edited
-                          </span>
-                        )}
+                    {isEditing ? (
+                      <div className="mt-2">
+                        <textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              cancelEdit();
+                            }
+
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSaveEdit();
+                            }
+                          }}
+                          rows={3}
+                          autoFocus
+                          className="w-full resize-none rounded-lg border border-white/10 bg-[#0b0f1d] px-3 py-2 text-sm text-white outline-none focus:border-violet-500"
+                        />
+
+                        <p className="mt-2 text-xs text-slate-500">
+                          escape to{" "}
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="text-blue-400 hover:underline"
+                          >
+                            cancel
+                          </button>{" "}
+                          • enter to{" "}
+                          <button
+                            type="button"
+                            onClick={handleSaveEdit}
+                            className="text-blue-400 hover:underline"
+                          >
+                            save
+                          </button>
+                        </p>
                       </div>
-
+                    ) : (
                       <p className="mt-1 whitespace-pre-wrap break-words text-slate-100">
                         {message.content}
                       </p>
-                    </div>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
 
-              <div ref={bottomRef} />
-            </div>
-          )}
-        </div>
-
-        <form
-          onSubmit={sendMessage}
-          className="shrink-0 border-t border-white/10 bg-[#080b18] p-4"
-        >
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
-            <button
-              type="button"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-300 hover:bg-violet-600 hover:text-white"
-            >
-              <Plus size={18} />
-            </button>
-
-            <input
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={sending}
-              placeholder={`Message #${channel?.name || "channel"}`}
-              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
-            />
-
-            <div className="flex shrink-0 items-center gap-3 text-slate-400">
-              <Gift size={19} className="hover:text-white" />
-              <Sticker size={19} className="hover:text-white" />
-              <Smile size={19} className="hover:text-white" />
-            </div>
+            <div ref={bottomRef} />
           </div>
-        </form>
-      </section>
+        )}
+      </div>
 
-      {editingMessage && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0f1d] p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-black text-white">Edit Message</h2>
+      <form
+        onSubmit={sendMessage}
+        className="shrink-0 border-t border-white/10 bg-[#080b18] p-4"
+      >
+        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+          <button
+            type="button"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-300 hover:bg-violet-600 hover:text-white"
+          >
+            <Plus size={18} />
+          </button>
 
-              <button
-                onClick={() => setEditingMessage(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X size={20} />
-              </button>
-            </div>
+          <input
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            disabled={sending || !!editingMessage}
+            placeholder={`Message #${channel?.name || "channel"}`}
+            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
+          />
 
-            <textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              rows={4}
-              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white outline-none focus:border-violet-500"
-            />
-
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setEditingMessage(null)}
-                className="flex-1 rounded-xl border border-white/10 py-3 font-bold text-slate-300 hover:bg-white/[0.06]"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={handleSaveEdit}
-                className="flex-1 rounded-xl bg-violet-600 py-3 font-bold text-white hover:bg-violet-500"
-              >
-                Save
-              </button>
-            </div>
+          <div className="flex shrink-0 items-center gap-3 text-slate-400">
+            <Gift size={19} className="hover:text-white" />
+            <Sticker size={19} className="hover:text-white" />
+            <Smile size={19} className="hover:text-white" />
           </div>
         </div>
-      )}
-    </>
+      </form>
+    </section>
   );
 }
