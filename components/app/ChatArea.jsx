@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { Plus, Gift, Smile, Sticker } from "lucide-react";
-import { pusherClient } from "@/lib/pusher-client";
+import { getPusherClient } from "@/lib/pusher-client";
 
 export default function ChatArea() {
   const router = useRouter();
@@ -23,28 +23,27 @@ export default function ChatArea() {
     loadMessages();
   }, [serverId, channelId]);
 
-  useEffect(() => {
-    if (!channelId) return;
+useEffect(() => {
+  if (!channelId) return;
 
-    const pusherChannel = pusherClient.subscribe(`channel-${channelId}`);
+  const pusherClient = getPusherClient();
+  const pusherChannel = pusherClient.subscribe(`channel-${channelId}`);
 
-    function handleNewMessage(message) {
-      setMessages((prev) => {
-        const exists = prev.some((item) => item._id === message._id);
+  function handleNewMessage(message) {
+    setMessages((prev) => {
+      const exists = prev.some((item) => item._id === message._id);
+      if (exists) return prev;
+      return [...prev, message];
+    });
+  }
 
-        if (exists) return prev;
+  pusherChannel.bind("message:new", handleNewMessage);
 
-        return [...prev, message];
-      });
-    }
-
-    pusherChannel.bind("message:new", handleNewMessage);
-
-    return () => {
-      pusherChannel.unbind("message:new", handleNewMessage);
-      pusherClient.unsubscribe(`channel-${channelId}`);
-    };
-  }, [channelId]);
+  return () => {
+    pusherChannel.unbind("message:new", handleNewMessage);
+    pusherClient.unsubscribe(`channel-${channelId}`);
+  };
+}, [channelId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
