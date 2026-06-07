@@ -5,16 +5,20 @@ import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 
 export const authOptions = {
+  trustHost: true,
+
   session: {
     strategy: "jwt",
   },
 
   pages: {
     signIn: "/login",
+    error: "/login",
   },
 
   providers: [
     CredentialsProvider({
+      id: "credentials",
       name: "Credentials",
 
       credentials: {
@@ -25,11 +29,11 @@ export const authOptions = {
       async authorize(credentials) {
         await connectDB();
 
-        const login = credentials.login?.trim();
-        const password = credentials.password;
+        const login = credentials?.login?.trim();
+        const password = credentials?.password;
 
         if (!login || !password) {
-          throw new Error("Please enter your login details");
+          return null;
         }
 
         const user = await User.findOne({
@@ -37,22 +41,22 @@ export const authOptions = {
         });
 
         if (!user) {
-          throw new Error("Invalid email, username or password");
+          return null;
         }
 
         const passwordMatch = await bcrypt.compare(password, user.password);
 
         if (!passwordMatch) {
-          throw new Error("Invalid email, username or password");
+          return null;
         }
 
         return {
           id: user._id.toString(),
           username: user.username,
           email: user.email,
-          image: user.avatar,
-          isStaff: user.isStaff,
-          isAdmin: user.isAdmin,
+          image: user.avatar || "/logo.png",
+          isStaff: user.isStaff || false,
+          isAdmin: user.isAdmin || false,
           badges: user.badges || [],
         };
       },
@@ -67,6 +71,7 @@ export const authOptions = {
         token.isStaff = user.isStaff;
         token.isAdmin = user.isAdmin;
         token.badges = user.badges || [];
+        token.picture = user.image;
       }
 
       return token;
@@ -75,6 +80,7 @@ export const authOptions = {
     async session({ session, token }) {
       session.user.id = token.id;
       session.user.username = token.username;
+      session.user.image = token.picture || "/logo.png";
       session.user.isStaff = token.isStaff || false;
       session.user.isAdmin = token.isAdmin || false;
       session.user.badges = token.badges || [];
@@ -83,6 +89,7 @@ export const authOptions = {
     },
   },
 
+  debug: process.env.NODE_ENV === "development",
   secret: process.env.NEXTAUTH_SECRET,
 };
 
