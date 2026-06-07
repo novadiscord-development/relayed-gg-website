@@ -5,8 +5,23 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
-import User from "@/models/User";
+import Notification from "@/models/Notification";
 import { pusherServer } from "@/lib/pusher";
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function contentMentionsUsername(content, username) {
+  if (!content || !username) return false;
+
+  const escaped = escapeRegExp(username);
+
+  return new RegExp(
+    `(^|\\s)@${escaped}(?=\\s|$|[.,!?])`,
+    "i"
+  ).test(content);
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -81,6 +96,41 @@ export default async function handler(req, res) {
       });
 
     await pusherServer.trigger(`channel-${channelId}`, "message:new", message);
+
+    const members = await Member.find({
+      serverId: channel.serverId,
+      userId: { $ne: session.user.id },
+    }).populate("userId", "username");
+
+    await Promise.all(
+      members.map((member) => {
+        const mentioned = contentMentionsUsername(
+          content,
+          member.userId?.username
+        );
+
+        return Notification.findOneAndUpdate(
+          {
+            userId: member.userId._id,
+            serverId: channel.serverId,
+            channelId,
+          },
+          {
+            $set: {
+              unread: true,
+              lastMessageAt: message.createdAt,
+            },
+            $inc: {
+              mentions: mentioned ? 1 : 0,
+            },
+          },
+          {
+            upsert: true,
+            new: true,
+          }
+        );
+      })
+    );
 
     return res.status(201).json({ message });
   } catch (error) {

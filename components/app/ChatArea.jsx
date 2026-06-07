@@ -21,7 +21,6 @@ export default function ChatArea() {
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
-  const notificationAudioRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const lastTypingAtRef = useRef(0);
   const typingTimeoutsRef = useRef({});
@@ -72,11 +71,6 @@ export default function ChatArea() {
       setMessages((prev) => {
         const exists = prev.some((item) => item._id === message._id);
         if (exists) return prev;
-
-        if (shouldPlayPing(message)) {
-          notificationAudioRef.current?.play().catch(() => {});
-        }
-
         return [...prev, message];
       });
 
@@ -135,7 +129,7 @@ export default function ChatArea() {
       Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
       typingTimeoutsRef.current = {};
     };
-  }, [channelId, session?.user?.username, session?.user?.id]);
+  }, [channelId, session?.user?.id]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -260,26 +254,6 @@ export default function ChatArea() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }
-
-  function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-
-  function shouldPlayPing(message) {
-    if (!message?.content || message.system) return false;
-
-    if (getAuthorId(message) === session?.user?.id) return false;
-
-    const username = session?.user?.username;
-    if (!username) return false;
-
-    const mentionRegex = new RegExp(
-      `(^|\\s)@${escapeRegExp(username)}(?=\\s|$|[.,!?])`,
-      "i"
-    );
-
-    return mentionRegex.test(message.content);
   }
 
   function handleContentChange(e) {
@@ -498,41 +472,39 @@ export default function ChatArea() {
   }
 
   function TypingIndicator() {
-  if (typingUsers.length === 0) return null;
+    if (typingUsers.length === 0) return null;
 
-  const names = typingUsers.map((user) => user.username);
+    const names = typingUsers.map((user) => user.username);
 
-  let text = "";
+    let text = "";
 
-  if (names.length === 1) {
-    text = `${names[0]} is typing`;
-  } else {
-    text = "Several people are typing";
-  }
+    if (names.length === 1) {
+      text = `${names[0]} is typing`;
+    } else {
+      text = "Several people are typing";
+    }
 
-  return (
-    <div className="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-400">
-      <div className="flex items-center gap-1">
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.3s]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.15s]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" />
+    return (
+      <div className="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-400">
+        <div className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.3s]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.15s]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" />
+        </div>
+
+        <span>
+          <span className="font-semibold text-slate-300">{text}</span>
+          <span className="text-slate-500">...</span>
+        </span>
       </div>
-
-      <span>
-        <span className="font-semibold text-slate-300">{text}</span>
-        <span className="text-slate-500">...</span>
-      </span>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <section
       onMouseDown={focusInput}
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]"
     >
-      <audio ref={notificationAudioRef} src="/sounds/ping.mp3" preload="auto" />
-
       <div
         ref={messagesContainerRef}
         className="min-h-0 flex-1 overflow-y-auto px-6 py-6"

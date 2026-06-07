@@ -3,9 +3,11 @@ import { useRouter } from "next/router";
 import Image from "next/image";
 import { Plus, Compass } from "lucide-react";
 import CreateServerModal from "@/components/modals/CreateServerModal";
+import { useNotifications } from "@/context/NotificationContext";
 
 export default function ServerBar() {
   const router = useRouter();
+  const { getServerNotification } = useNotifications();
 
   const [servers, setServers] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -14,6 +16,22 @@ export default function ServerBar() {
 
   useEffect(() => {
     loadServers();
+  }, []);
+
+  useEffect(() => {
+    function refreshServers() {
+      loadServers();
+    }
+
+    window.addEventListener("server:updated", refreshServers);
+    window.addEventListener("server:deleted", refreshServers);
+    window.addEventListener("focus", refreshServers);
+
+    return () => {
+      window.removeEventListener("server:updated", refreshServers);
+      window.removeEventListener("server:deleted", refreshServers);
+      window.removeEventListener("focus", refreshServers);
+    };
   }, []);
 
   async function loadServers() {
@@ -25,6 +43,16 @@ export default function ServerBar() {
     } catch (error) {
       console.error("LOAD_SERVERS_ERROR", error);
     }
+  }
+
+  function getServerInitials(name) {
+    return name
+      ?.split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase();
   }
 
   function handleServerCreated(data) {
@@ -61,13 +89,14 @@ export default function ServerBar() {
 
         {servers.map((server) => {
           const isActive = activeServerId === server._id;
+          const notification = getServerNotification(server._id);
 
           return (
             <button
               key={server._id}
               onClick={() => router.push(`/app/server/${server._id}`)}
               title={server.name}
-              className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border transition hover:rounded-xl ${
+              className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border transition hover:rounded-xl ${
                 isActive
                   ? "border-violet-400 bg-violet-600/30 shadow-[0_0_25px_rgba(124,58,237,0.5)]"
                   : "border-white/10 bg-white/[0.04] hover:border-violet-400/50 hover:bg-violet-600/20"
@@ -77,24 +106,29 @@ export default function ServerBar() {
                 <span className="absolute -left-3 h-8 w-1 rounded-r-full bg-violet-400" />
               )}
 
-              {server.icon ? (
-                <Image
-                  src={server.icon}
-                  alt={server.name}
-                  width={48}
-                  height={48}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="text-sm font-black tracking-wide">
-                  {server.name
-                    ?.split(" ")
-                    .slice(0, 2)
-                    .map((word) => word[0])
-                    .join("")
-                    .toUpperCase()}
-                </span>
-              )}
+              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl">
+                {server.icon ? (
+                  <Image
+                    src={server.icon}
+                    alt={server.name}
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="select-none text-sm font-black tracking-wide text-white">
+                    {getServerInitials(server.name)}
+                  </span>
+                )}
+              </div>
+
+              {notification.mentions > 0 ? (
+                <div className="absolute -bottom-1 -right-1 flex h-6 min-w-[24px] items-center justify-center rounded-full border-4 border-[#070a15] bg-red-500 px-1 text-xs font-black text-white">
+                  {notification.mentions > 99 ? "99+" : notification.mentions}
+                </div>
+              ) : notification.unread && !isActive ? (
+                <div className="absolute -right-1 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-[#070a15] bg-white" />
+              ) : null}
             </button>
           );
         })}

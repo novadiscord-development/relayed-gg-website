@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import InvitePeopleModal from "../modals/InvitePeopleModal";
 import EditServerModal from "@/components/modals/EditServerModal";
+import { useNotifications } from "@/context/NotificationContext";
 import {
   DndContext,
   DragOverlay,
@@ -50,7 +51,13 @@ function DropZone({ id, children, className = "" }) {
   );
 }
 
-function SortableChannel({ channel, active, onOpenMenu, onClick }) {
+function SortableChannel({
+  channel,
+  active,
+  notification,
+  onOpenMenu,
+  onClick,
+}) {
   const {
     attributes,
     listeners,
@@ -67,6 +74,8 @@ function SortableChannel({ channel, active, onOpenMenu, onClick }) {
   });
 
   const Icon = channel.type === "voice" ? Volume2 : Hash;
+  const hasMentions = notification?.mentions > 0;
+  const hasUnread = notification?.unread;
 
   return (
     <button
@@ -84,15 +93,31 @@ function SortableChannel({ channel, active, onOpenMenu, onClick }) {
           ? "opacity-40"
           : active
           ? "bg-white/[0.08] text-white"
+          : hasMentions
+          ? "text-white hover:bg-white/[0.06]"
+          : hasUnread
+          ? "text-slate-200 hover:bg-white/[0.06] hover:text-white"
           : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
       }`}
     >
       <Icon
         size={17}
-        className="shrink-0 text-slate-500 group-hover:text-slate-300"
+        className={`shrink-0 ${
+          active || hasMentions || hasUnread
+            ? "text-slate-300"
+            : "text-slate-500 group-hover:text-slate-300"
+        }`}
       />
 
       <span className="truncate">{channel.name}</span>
+
+      {hasMentions ? (
+        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-black text-white">
+          {notification.mentions > 99 ? "99+" : notification.mentions}
+        </span>
+      ) : hasUnread ? (
+        <span className="ml-auto h-2 w-2 rounded-full bg-white" />
+      ) : null}
     </button>
   );
 }
@@ -100,6 +125,7 @@ function SortableChannel({ channel, active, onOpenMenu, onClick }) {
 export default function ChannelSidebar() {
   const router = useRouter();
   const { serverId, channelId } = router.query;
+  const { getChannelNotification, clearChannel } = useNotifications();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -134,6 +160,30 @@ export default function ChannelSidebar() {
     if (!serverId) return;
     loadSidebarData();
   }, [serverId]);
+
+  useEffect(() => {
+    function refreshSidebar() {
+      if (serverId) loadSidebarData();
+    }
+
+    window.addEventListener("server:updated", refreshSidebar);
+    window.addEventListener("channel:created", refreshSidebar);
+    window.addEventListener("channel:updated", refreshSidebar);
+    window.addEventListener("channel:deleted", refreshSidebar);
+
+    return () => {
+      window.removeEventListener("server:updated", refreshSidebar);
+      window.removeEventListener("channel:created", refreshSidebar);
+      window.removeEventListener("channel:updated", refreshSidebar);
+      window.removeEventListener("channel:deleted", refreshSidebar);
+    };
+  }, [serverId]);
+
+  useEffect(() => {
+    if (serverId && channelId) {
+      clearChannel(serverId, channelId);
+    }
+  }, [serverId, channelId]);
 
   async function loadSidebarData() {
     try {
@@ -215,34 +265,34 @@ export default function ChannelSidebar() {
     });
   }
 
-function handleInvitePeople() {
-  setServerMenuOpen(false);
-  setShowInviteModal(true);
-}
+  function handleInvitePeople() {
+    setServerMenuOpen(false);
+    setShowInviteModal(true);
+  }
 
-function handleEditServer() {
-  setServerMenuOpen(false);
-  setShowEditServerModal(true);
-}
+  function handleEditServer() {
+    setServerMenuOpen(false);
+    setShowEditServerModal(true);
+  }
 
-async function handleLeaveServer() {
-  setServerMenuOpen(false);
+  async function handleLeaveServer() {
+    setServerMenuOpen(false);
 
-  const confirmed = confirm(`Leave ${server?.name || "this server"}?`);
-  if (!confirmed) return;
+    const confirmed = confirm(`Leave ${server?.name || "this server"}?`);
+    if (!confirmed) return;
 
-  const res = await fetch("/api/servers/leave", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ serverId }),
-  });
+    const res = await fetch("/api/servers/leave", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ serverId }),
+    });
 
-  if (!res.ok) return;
+    if (!res.ok) return;
 
-  router.push("/app");
-}
+    router.push("/app");
+  }
 
   function handleEditChannel() {
     const channel = contextMenu?.channel;
@@ -274,6 +324,8 @@ async function handleLeaveServer() {
     setChannels((prev) =>
       prev.map((item) => (item._id === data.channel._id ? data.channel : item))
     );
+
+    window.dispatchEvent(new Event("channel:updated"));
 
     setEditingChannel(null);
     setEditName("");
@@ -315,10 +367,13 @@ async function handleLeaveServer() {
               : item
           )
       );
+
+      window.dispatchEvent(new Event("channel:deleted"));
       return;
     }
 
     setChannels((prev) => prev.filter((item) => item._id !== channel._id));
+    window.dispatchEvent(new Event("channel:deleted"));
 
     if (channelId === channel._id) {
       router.push(`/app/server/${serverId}`);
@@ -327,6 +382,7 @@ async function handleLeaveServer() {
 
   function handleChannelCreated(channel) {
     setChannels((prev) => [...prev, channel]);
+    window.dispatchEvent(new Event("channel:created"));
 
     if (channel.type === "text") {
       router.push(`/app/server/${serverId}/channel/${channel._id}`);
@@ -378,6 +434,8 @@ async function handleLeaveServer() {
         })),
       }),
     });
+
+    window.dispatchEvent(new Event("channel:updated"));
   }
 
   function handleDragStart(event) {
@@ -456,15 +514,18 @@ async function handleLeaveServer() {
 
   function renderChannel(channel) {
     const active = channelId === channel._id;
+    const notification = getChannelNotification(serverId, channel._id);
 
     return (
       <SortableChannel
         key={channel._id}
         channel={channel}
         active={active}
+        notification={notification}
         onOpenMenu={openContextMenu}
         onClick={() => {
           if (channel.type === "text") {
+            clearChannel(serverId, channel._id);
             router.push(`/app/server/${serverId}/channel/${channel._id}`);
           }
         }}
@@ -750,21 +811,25 @@ async function handleLeaveServer() {
           </div>
         </div>
       )}
+
       {showInviteModal && (
         <InvitePeopleModal
-            serverId={serverId}
-            serverName={server?.name}
-            onClose={() => setShowInviteModal(false)}
+          serverId={serverId}
+          serverName={server?.name}
+          onClose={() => setShowInviteModal(false)}
         />
-        )}
+      )}
 
-        {showEditServerModal && (
-            <EditServerModal
-                server={server}
-                onClose={() => setShowEditServerModal(false)}
-                onUpdated={(updatedServer) => setServer(updatedServer)}
-            />
-        )}
+      {showEditServerModal && (
+        <EditServerModal
+          server={server}
+          onClose={() => setShowEditServerModal(false)}
+          onUpdated={(updatedServer) => {
+            setServer(updatedServer);
+            window.dispatchEvent(new Event("server:updated"));
+          }}
+        />
+      )}
     </>
   );
 }
