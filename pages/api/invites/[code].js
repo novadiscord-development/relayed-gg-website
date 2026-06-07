@@ -1,5 +1,7 @@
 import connectDB from "@/lib/mongodb";
 import Invite from "@/models/Invite";
+import Server from "@/models/Server";
+import User from "@/models/User";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
