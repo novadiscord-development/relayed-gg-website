@@ -42,7 +42,6 @@ export default async function handler(req, res) {
     }).lean();
 
     const now = Date.now();
-
     const presenceMap = {};
 
     presences.forEach((presence) => {
@@ -76,7 +75,7 @@ export default async function handler(req, res) {
         presenceMap[key] = {
           userId: key,
           status: "offline",
-          customStatus: presence.customStatus || "",
+          customStatus: "",
           lastSeenAt: null,
           lastActivityAt: null,
         };
