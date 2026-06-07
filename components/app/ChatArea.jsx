@@ -498,26 +498,35 @@ export default function ChatArea() {
   }
 
   function TypingIndicator() {
-    if (typingUsers.length === 0) return null;
+  if (typingUsers.length === 0) return null;
 
-    const names = typingUsers.map((user) => user.username);
+  const names = typingUsers.map((user) => user.username);
 
-    let text = "";
+  let text = "";
 
-    if (names.length === 1) {
-      text = `${names[0]} is typing...`;
-    } else if (names.length === 2) {
-      text = `${names[0]} and ${names[1]} are typing...`;
-    } else {
-      text = "Several people are typing...";
-    }
-
-    return (
-      <div className="px-1 pt-2 text-xs font-medium text-slate-500">
-        {text}
-      </div>
-    );
+  if (names.length === 1) {
+    text = `${names[0]} is typing`;
+  } else if (names.length === 2) {
+    text = `${names[0]} and ${names[1]} are typing`;
+  } else {
+    text = "Several people are typing";
   }
+
+  return (
+    <div className="mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-400">
+      <div className="flex items-center gap-1">
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.3s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.15s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400" />
+      </div>
+
+      <span>
+        <span className="font-semibold text-slate-300">{text}</span>
+        <span className="text-slate-500">...</span>
+      </span>
+    </div>
+  );
+}
 
   return (
     <section
