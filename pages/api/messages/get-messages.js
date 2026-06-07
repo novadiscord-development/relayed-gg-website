@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
+import User from "@/models/User";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -46,6 +47,14 @@ export default async function handler(req, res) {
       deleted: false,
     })
       .populate("authorId", "username avatar isStaff isAdmin badges")
+      .populate({
+        path: "replyToId",
+        select: "content authorId createdAt deleted",
+        populate: {
+          path: "authorId",
+          select: "username avatar isStaff isAdmin badges",
+        },
+      })
       .sort({ createdAt: 1 })
       .limit(100);
 

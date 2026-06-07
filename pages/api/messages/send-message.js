@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
+import User from "@/models/User";
 import { pusherServer } from "@/lib/pusher";
 
 export default async function handler(req, res) {
@@ -21,7 +22,7 @@ export default async function handler(req, res) {
 
     await connectDB();
 
-    const { channelId, content } = req.body;
+    const { channelId, content, replyToId = null } = req.body;
 
     if (!channelId || !content?.trim()) {
       return res.status(400).json({ message: "Message cannot be empty" });
@@ -46,23 +47,40 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You are not in this server" });
     }
 
+    let replyToMessage = null;
+
+    if (replyToId) {
+      replyToMessage = await Message.findOne({
+        _id: replyToId,
+        channelId,
+        serverId: channel.serverId,
+      });
+
+      if (!replyToMessage) {
+        return res.status(404).json({ message: "Reply message not found" });
+      }
+    }
+
     let message = await Message.create({
       serverId: channel.serverId,
       channelId,
       authorId: session.user.id,
+      replyToId: replyToMessage?._id || null,
       content: content.trim(),
     });
 
-    message = await message.populate(
-      "authorId",
-      "username avatar isStaff isAdmin badges"
-    );
+    message = await Message.findById(message._id)
+      .populate("authorId", "username avatar isStaff isAdmin badges")
+      .populate({
+        path: "replyToId",
+        select: "content authorId createdAt",
+        populate: {
+          path: "authorId",
+          select: "username avatar isStaff isAdmin badges",
+        },
+      });
 
-    await pusherServer.trigger(
-      `channel-${channelId}`,
-      "message:new",
-      message
-    );
+    await pusherServer.trigger(`channel-${channelId}`, "message:new", message);
 
     return res.status(201).json({ message });
   } catch (error) {

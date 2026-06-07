@@ -2,7 +2,16 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Plus, Gift, Smile, Sticker, Pencil, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Gift,
+  Smile,
+  Sticker,
+  Pencil,
+  Trash2,
+  Reply,
+  X,
+} from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 
 export default function ChatArea() {
@@ -23,6 +32,8 @@ export default function ChatArea() {
 
   const [mentionQuery, setMentionQuery] = useState("");
   const [showMentions, setShowMentions] = useState(false);
+
+  const [replyingTo, setReplyingTo] = useState(null);
 
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState("");
@@ -186,6 +197,13 @@ export default function ChatArea() {
     focusInput();
   }
 
+  function startReply(message) {
+    setReplyingTo(message);
+    setEditingMessage(null);
+    setEditContent("");
+    focusInput();
+  }
+
   async function sendMessage(e) {
     e.preventDefault();
 
@@ -195,10 +213,12 @@ export default function ChatArea() {
     }
 
     const messageContent = content;
+    const replyToId = replyingTo?._id || null;
 
     setSending(true);
     setContent("");
     setShowMentions(false);
+    setReplyingTo(null);
     focusInput();
 
     try {
@@ -210,6 +230,7 @@ export default function ChatArea() {
         body: JSON.stringify({
           channelId,
           content: messageContent,
+          replyToId,
         }),
       });
 
@@ -217,6 +238,7 @@ export default function ChatArea() {
 
       if (!res.ok) {
         setContent(messageContent);
+        setReplyingTo(replyingTo);
         focusInput();
         return;
       }
@@ -229,6 +251,7 @@ export default function ChatArea() {
     } catch (error) {
       console.error("SEND_MESSAGE_ERROR", error);
       setContent(messageContent);
+      setReplyingTo(replyingTo);
     } finally {
       setSending(false);
       focusInput();
@@ -285,6 +308,11 @@ export default function ChatArea() {
     if (!res.ok) return;
 
     setMessages((prev) => prev.filter((item) => item._id !== message._id));
+
+    if (replyingTo?._id === message._id) {
+      setReplyingTo(null);
+    }
+
     focusInput();
   }
 
@@ -328,6 +356,24 @@ export default function ChatArea() {
     });
   }
 
+  function ReplyPreview({ reply }) {
+    if (!reply) return null;
+
+    return (
+      <div className="mb-1 flex max-w-full items-center gap-2 text-xs text-slate-500">
+        <span className="text-slate-600">↳</span>
+
+        <span className="shrink-0 font-semibold text-slate-400">
+          {reply.authorId?.username || "Unknown User"}
+        </span>
+
+        <span className="truncate text-slate-500">
+          {reply.content || "Original message unavailable"}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <section
       onMouseDown={focusInput}
@@ -367,6 +413,7 @@ export default function ChatArea() {
                 previousMessage &&
                 !previousMessage.system &&
                 !message.system &&
+                !message.replyToId &&
                 getAuthorId(previousMessage) === getAuthorId(message);
 
               if (message.system) {
@@ -398,9 +445,19 @@ export default function ChatArea() {
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => startReply(message)}
+                        className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                      >
+                        <Reply size={16} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => {
                           setEditingMessage(message);
                           setEditContent(message.content);
+                          setReplyingTo(null);
                         }}
                         className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
                       >
@@ -433,6 +490,10 @@ export default function ChatArea() {
                   )}
 
                   <div className="min-w-0 flex-1">
+                    {message.replyToId && (
+                      <ReplyPreview reply={message.replyToId} />
+                    )}
+
                     {!grouped && (
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold text-violet-300">
@@ -558,6 +619,35 @@ export default function ChatArea() {
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {replyingTo && (
+          <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-xs text-slate-400">
+                Replying to{" "}
+                <span className="font-semibold text-violet-300">
+                  {replyingTo.authorId?.username || "Unknown User"}
+                </span>
+              </p>
+
+              <p className="truncate text-sm text-slate-300">
+                {replyingTo.content}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setReplyingTo(null);
+                focusInput();
+              }}
+              className="ml-3 text-slate-500 hover:text-white"
+            >
+              <X size={18} />
+            </button>
           </div>
         )}
 
