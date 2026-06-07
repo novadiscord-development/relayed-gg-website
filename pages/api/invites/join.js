@@ -6,6 +6,7 @@ import Invite from "@/models/Invite";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
+import ServerBan from "@/models/ServerBan";
 import User from "@/models/User";
 import { pusherServer } from "@/lib/pusher";
 
@@ -52,6 +53,17 @@ export default async function handler(req, res) {
     if (invite.maxUses && invite.uses >= invite.maxUses) {
       return res.status(410).json({
         message: "Invite has reached its maximum uses",
+      });
+    }
+
+    const ban = await ServerBan.findOne({
+      serverId: invite.serverId,
+      userId: session.user.id,
+    });
+
+    if (ban) {
+      return res.status(403).json({
+        message: "You are banned from this server",
       });
     }
 

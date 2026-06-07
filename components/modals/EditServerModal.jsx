@@ -12,6 +12,7 @@ import {
   MoreVertical,
   Crown,
   UserMinus,
+  ShieldBan,
 } from "lucide-react";
 
 const tabs = [
@@ -37,6 +38,8 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   const [memberSearch, setMemberSearch] = useState("");
   const [membersLoading, setMembersLoading] = useState(false);
   const [openMemberMenu, setOpenMemberMenu] = useState(null);
+  const [bans, setBans] = useState([]);
+  const [bansLoading, setBansLoading] = useState(false);  
 
   useEffect(() => {
     setName(server?.name || "");
@@ -49,6 +52,12 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
       loadMembers();
     }
   }, [activeTab, server?._id]);
+
+  useEffect(() => {
+  if (activeTab === "bans" && server?._id) {
+    loadBans();
+  }
+}, [activeTab, server?._id]);
 
   async function loadMembers() {
     setMembersLoading(true);
@@ -63,6 +72,68 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
     setMembersLoading(false);
   }
+
+  async function loadBans() {
+  setBansLoading(true);
+
+  const res = await fetch(
+    `/api/servers/get-bans?serverId=${server._id}`
+  );
+
+  const data = await res.json();
+
+  if (res.ok) {
+    setBans(data.bans || []);
+  }
+
+  setBansLoading(false);
+}
+
+async function banMember(member) {
+  const confirmed = confirm(
+    `Ban ${member.userId?.username || "this member"}?`
+  );
+
+  if (!confirmed) return;
+
+  const res = await fetch("/api/servers/ban-member", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverId: server._id,
+      memberId: member._id,
+    }),
+  });
+
+  if (!res.ok) return;
+
+  setMembers((prev) =>
+    prev.filter((item) => item._id !== member._id)
+  );
+
+  setOpenMemberMenu(null);
+}
+
+async function unbanMember(ban) {
+  const res = await fetch("/api/servers/unban-member", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverId: server._id,
+      banId: ban._id,
+    }),
+  });
+
+  if (!res.ok) return;
+
+  setBans((prev) =>
+    prev.filter((item) => item._id !== ban._id)
+  );
+}
 
   async function saveServer() {
     if (!name.trim() || saving) return;
@@ -327,6 +398,14 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
                             Kick Member
                             <UserMinus size={15} />
                           </button>
+
+                          <button
+                            onClick={() => banMember(member)}
+                            className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-500 hover:bg-red-500/10"
+                          >
+                            Ban Member
+                            <ShieldBan size={15} />
+                          </button>
                         </div>
                       </>
                     )}
@@ -391,8 +470,50 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
             Manage banned users from this server.
           </p>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-slate-400">
-            Ban system will go here later.
+          <div className="mt-6 space-y-3">
+            {bansLoading ? (
+              <p className="text-sm text-slate-500">
+                Loading bans...
+              </p>
+            ) : bans.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No banned users.
+              </p>
+            ) : (
+              bans.map((ban) => (
+                <div
+                  key={ban._id}
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <Image
+                      src={ban.userId?.avatar || "/logo.png"}
+                      alt={ban.userId?.username}
+                      width={42}
+                      height={42}
+                      className="rounded-full"
+                    />
+
+                    <div>
+                      <p className="font-bold text-white">
+                        {ban.userId?.username}
+                      </p>
+
+                      <p className="text-xs text-slate-500">
+                        Banned by {ban.bannedBy?.username}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => unbanMember(ban)}
+                    className="rounded-lg border border-white/10 px-3 py-2 text-sm text-green-400 hover:bg-green-500/10"
+                  >
+                    Unban
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       );

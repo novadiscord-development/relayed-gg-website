@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const MemberSchema = new mongoose.Schema(
+const ServerBanSchema = new mongoose.Schema(
   {
     serverId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -14,23 +14,22 @@ const MemberSchema = new mongoose.Schema(
       required: true,
     },
 
-    role: {
-      type: String,
-      enum: ["owner", "admin", "moderator", "member"],
-      default: "member",
+    bannedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
 
-    nickname: {
+    reason: {
       type: String,
       default: "",
-      trim: true,
-      maxlength: 32,
+      maxlength: 500,
     },
   },
   { timestamps: true }
 );
 
-MemberSchema.index(
+ServerBanSchema.index(
   {
     serverId: 1,
     userId: 1,
@@ -40,4 +39,5 @@ MemberSchema.index(
   }
 );
 
-export default mongoose.models.Member || mongoose.model("Member", MemberSchema);
+export default mongoose.models.ServerBan ||
+  mongoose.model("ServerBan", ServerBanSchema);
