@@ -126,7 +126,7 @@ export default async function handler(req, res) {
           },
           {
             upsert: true,
-            new: true,
+            returnDocument: "after",
           }
         );
       })
