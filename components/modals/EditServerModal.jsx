@@ -24,6 +24,32 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   const [icon, setIcon] = useState(server?.icon || "");
   const [description, setDescription] = useState(server?.description || "");
   const [saving, setSaving] = useState(false);
+  const [members, setMembers] = useState([]);
+const [memberSearch, setMemberSearch] = useState("");
+const [membersLoading, setMembersLoading] = useState(false);
+
+useEffect(() => {
+  if (activeTab === "members" && server?._id) {
+    loadMembers();
+  }
+}, [activeTab, server?._id]);
+
+async function loadMembers() {
+  setMembersLoading(true);
+
+  const res = await fetch(`/api/servers/get-members?serverId=${server._id}`);
+  const data = await res.json();
+
+  if (res.ok) {
+    setMembers(data.members || []);
+  }
+
+  setMembersLoading(false);
+}
+
+const filteredMembers = members.filter((member) =>
+  member.userId?.username?.toLowerCase().includes(memberSearch.toLowerCase())
+);
 
   async function saveServer() {
     if (!name.trim() || saving) return;
@@ -110,20 +136,79 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
       );
     }
 
-    if (activeTab === "members") {
-      return (
-        <div>
-          <h2 className="text-2xl font-black text-white">Members</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Manage people inside this server.
-          </p>
+if (activeTab === "members") {
+  return (
+    <div>
+      <h2 className="text-2xl font-black text-white">Members</h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Manage people inside this server.
+      </p>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-slate-400">
-            Member management will go here next.
-          </div>
+      <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+        <div className="flex items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
+          <Search size={17} className="text-slate-500" />
+          <input
+            value={memberSearch}
+            onChange={(e) => setMemberSearch(e.target.value)}
+            placeholder="Search members"
+            className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+          />
         </div>
-      );
-    }
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {membersLoading ? (
+          <p className="text-sm text-slate-500">Loading members...</p>
+        ) : filteredMembers.length === 0 ? (
+          <p className="text-sm text-slate-500">No members found.</p>
+        ) : (
+          filteredMembers.map((member) => {
+            const user = member.userId;
+
+            return (
+              <div
+                key={member._id}
+                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <Image
+                    src={user?.avatar || "/logo.png"}
+                    alt={user?.username || "User"}
+                    width={42}
+                    height={42}
+                    className="h-[42px] w-[42px] rounded-full"
+                  />
+
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-white">
+                      {user?.username || "Unknown User"}
+
+                      {user?.isStaff && (
+                        <span className="ml-2 text-violet-400">◆</span>
+                      )}
+
+                      {user?.isAdmin && (
+                        <span className="ml-1 text-red-400">🛡</span>
+                      )}
+                    </p>
+
+                    <p className="text-xs capitalize text-slate-500">
+                      {member.role}
+                    </p>
+                  </div>
+                </div>
+
+                <button className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/[0.06]">
+                  Manage
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
 
     if (activeTab === "roles") {
       return (
