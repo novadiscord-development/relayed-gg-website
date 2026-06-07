@@ -19,19 +19,31 @@ export default async function handler(req, res) {
     await connectDB();
 
     const { idle = false } = req.body;
-
     const now = new Date();
+
+    const existingPresence = await Presence.findOne({
+      userId: session.user.id,
+    });
+
+    const manualDnd = existingPresence?.status === "dnd";
+
+    const nextStatus = manualDnd ? "dnd" : idle ? "idle" : "online";
+
+    const update = {
+      status: nextStatus,
+      lastSeenAt: now,
+    };
+
+    if (!idle) {
+      update.lastActivityAt = now;
+    }
 
     const presence = await Presence.findOneAndUpdate(
       {
         userId: session.user.id,
       },
       {
-        $set: {
-          status: idle ? "idle" : "online",
-          lastSeenAt: now,
-          lastActivityAt: idle ? undefined : now,
-        },
+        $set: update,
       },
       {
         upsert: true,
