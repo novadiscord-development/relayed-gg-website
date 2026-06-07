@@ -7,11 +7,17 @@ export default function MemberSidebar() {
   const { serverId } = router.query;
 
   const [members, setMembers] = useState([]);
+  const [presences, setPresences] = useState({});
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!serverId) return;
+
     loadMembers();
+    loadPresence();
+
+    const interval = setInterval(loadPresence, 15000);
+    return () => clearInterval(interval);
   }, [serverId]);
 
   async function loadMembers() {
@@ -21,6 +27,33 @@ export default function MemberSidebar() {
     setMembers(data.members || []);
   }
 
+  async function loadPresence() {
+    const res = await fetch(`/api/presence/get?serverId=${serverId}`);
+    const data = await res.json();
+
+    if (res.ok) {
+      setPresences(data.presences || {});
+    }
+  }
+
+  function getStatus(userId) {
+    return presences?.[userId]?.status || "offline";
+  }
+
+  function getStatusLabel(status) {
+    if (status === "online") return "Online";
+    if (status === "idle") return "Idle";
+    if (status === "dnd") return "Do Not Disturb";
+    return "Offline";
+  }
+
+  function getStatusColor(status) {
+    if (status === "online") return "bg-green-500";
+    if (status === "idle") return "bg-yellow-400";
+    if (status === "dnd") return "bg-red-500";
+    return "bg-slate-600";
+  }
+
   const filteredMembers = members.filter((member) =>
     member.userId?.username?.toLowerCase().includes(search.toLowerCase())
   );
@@ -28,26 +61,43 @@ export default function MemberSidebar() {
   const ownerMembers = filteredMembers.filter((m) => m.role === "owner");
   const adminMembers = filteredMembers.filter((m) => m.role === "admin");
   const moderatorMembers = filteredMembers.filter((m) => m.role === "moderator");
-  const normalMembers = filteredMembers.filter((m) => m.role === "member");
+  const onlineMembers = filteredMembers.filter(
+    (m) => m.role === "member" && getStatus(m.userId?._id) !== "offline"
+  );
+  const offlineMembers = filteredMembers.filter(
+    (m) => m.role === "member" && getStatus(m.userId?._id) === "offline"
+  );
 
   function MemberItem({ member }) {
     const user = member.userId;
+    const status = getStatus(user?._id);
 
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 rounded-lg px-2 py-1.5 transition hover:bg-white/[0.04]">
         <div className="relative shrink-0">
           <Image
             src={user?.avatar || "/logo.png"}
             alt={user?.username || "User"}
             width={38}
             height={38}
-            className="h-[38px] w-[38px] rounded-full"
+            className={`h-[38px] w-[38px] rounded-full ${
+              status === "offline" ? "opacity-45 grayscale" : ""
+            }`}
           />
-          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#0b0f1d] bg-green-500" />
+
+          <span
+            className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#0b0f1d] ${getStatusColor(
+              status
+            )}`}
+          />
         </div>
 
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-slate-200">
+          <p
+            className={`truncate text-sm font-bold ${
+              status === "offline" ? "text-slate-500" : "text-slate-200"
+            }`}
+          >
             {user?.username || "Unknown User"}
 
             {user?.isStaff && (
@@ -64,7 +114,7 @@ export default function MemberSidebar() {
           </p>
 
           <p className="truncate text-xs text-slate-500">
-            {user?.isStaff ? "Relayed.gg Staff" : "Online"}
+            {user?.isStaff ? "Relayed.gg Staff" : getStatusLabel(status)}
           </p>
         </div>
       </div>
@@ -80,7 +130,7 @@ export default function MemberSidebar() {
           {title} — {members.length}
         </h3>
 
-        <div className="space-y-3">
+        <div className="space-y-1">
           {members.map((member) => (
             <MemberItem key={member._id} member={member} />
           ))}
@@ -106,7 +156,8 @@ export default function MemberSidebar() {
         <MemberGroup title="Owner" members={ownerMembers} />
         <MemberGroup title="Admin" members={adminMembers} />
         <MemberGroup title="Moderator" members={moderatorMembers} />
-        <MemberGroup title="Online" members={normalMembers} />
+        <MemberGroup title="Online" members={onlineMembers} />
+        <MemberGroup title="Offline" members={offlineMembers} />
       </div>
     </aside>
   );
