@@ -13,6 +13,7 @@ import {
   Crown,
   UserMinus,
   ShieldBan,
+  Camera,
 } from "lucide-react";
 
 const tabs = [
@@ -38,8 +39,9 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   const [memberSearch, setMemberSearch] = useState("");
   const [membersLoading, setMembersLoading] = useState(false);
   const [openMemberMenu, setOpenMemberMenu] = useState(null);
+
   const [bans, setBans] = useState([]);
-  const [bansLoading, setBansLoading] = useState(false);  
+  const [bansLoading, setBansLoading] = useState(false);
 
   useEffect(() => {
     setName(server?.name || "");
@@ -48,16 +50,9 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   }, [server]);
 
   useEffect(() => {
-    if (activeTab === "members" && server?._id) {
-      loadMembers();
-    }
+    if (activeTab === "members" && server?._id) loadMembers();
+    if (activeTab === "bans" && server?._id) loadBans();
   }, [activeTab, server?._id]);
-
-  useEffect(() => {
-  if (activeTab === "bans" && server?._id) {
-    loadBans();
-  }
-}, [activeTab, server?._id]);
 
   async function loadMembers() {
     setMembersLoading(true);
@@ -74,66 +69,14 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   }
 
   async function loadBans() {
-  setBansLoading(true);
+    setBansLoading(true);
 
-  const res = await fetch(
-    `/api/servers/get-bans?serverId=${server._id}`
-  );
+    const res = await fetch(`/api/servers/get-bans?serverId=${server._id}`);
+    const data = await res.json();
 
-  const data = await res.json();
-
-  if (res.ok) {
-    setBans(data.bans || []);
+    if (res.ok) setBans(data.bans || []);
+    setBansLoading(false);
   }
-
-  setBansLoading(false);
-}
-
-async function banMember(member) {
-  const confirmed = confirm(
-    `Ban ${member.userId?.username || "this member"}?`
-  );
-
-  if (!confirmed) return;
-
-  const res = await fetch("/api/servers/ban-member", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      serverId: server._id,
-      memberId: member._id,
-    }),
-  });
-
-  if (!res.ok) return;
-
-  setMembers((prev) =>
-    prev.filter((item) => item._id !== member._id)
-  );
-
-  setOpenMemberMenu(null);
-}
-
-async function unbanMember(ban) {
-  const res = await fetch("/api/servers/unban-member", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      serverId: server._id,
-      banId: ban._id,
-    }),
-  });
-
-  if (!res.ok) return;
-
-  setBans((prev) =>
-    prev.filter((item) => item._id !== ban._id)
-  );
-}
 
   async function saveServer() {
     if (!name.trim() || saving) return;
@@ -142,9 +85,7 @@ async function unbanMember(ban) {
 
     const res = await fetch("/api/servers/update", {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         serverId: server._id,
         name,
@@ -154,20 +95,16 @@ async function unbanMember(ban) {
     });
 
     const data = await res.json();
-
     setSaving(false);
 
     if (!res.ok) return;
-
     onUpdated(data.server);
   }
 
   async function updateMemberRole(member, role) {
     const res = await fetch("/api/servers/update-member-role", {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         serverId: server._id,
         memberId: member._id,
@@ -176,7 +113,6 @@ async function unbanMember(ban) {
     });
 
     const data = await res.json();
-
     if (!res.ok) return;
 
     setMembers((prev) =>
@@ -195,9 +131,7 @@ async function unbanMember(ban) {
 
     const res = await fetch("/api/servers/kick-member", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         serverId: server._id,
         memberId: member._id,
@@ -210,11 +144,54 @@ async function unbanMember(ban) {
     setOpenMemberMenu(null);
   }
 
+  async function banMember(member) {
+    const confirmed = confirm(`Ban ${member.userId?.username || "this member"}?`);
+    if (!confirmed) return;
+
+    const res = await fetch("/api/servers/ban-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serverId: server._id,
+        memberId: member._id,
+      }),
+    });
+
+    if (!res.ok) return;
+
+    setMembers((prev) => prev.filter((item) => item._id !== member._id));
+    setOpenMemberMenu(null);
+  }
+
+  async function unbanMember(ban) {
+    const res = await fetch("/api/servers/unban-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serverId: server._id,
+        banId: ban._id,
+      }),
+    });
+
+    if (!res.ok) return;
+    setBans((prev) => prev.filter((item) => item._id !== ban._id));
+  }
+
   const filteredMembers = members.filter((member) =>
     member.userId?.username?.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
   const canManageMembers = currentMember?.role === "owner";
+
+  function getInitials(value) {
+    return value
+      ?.split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase();
+  }
 
   function renderContent() {
     if (activeTab === "overview") {
@@ -222,53 +199,152 @@ async function unbanMember(ban) {
         <div>
           <h2 className="text-2xl font-black text-white">Server Overview</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Manage your server name, icon and description.
+            Customize how your server appears across Relayed.
           </p>
 
-          <div className="mt-6 space-y-5">
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase text-slate-500">
-                Server Name
-              </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white outline-none focus:border-violet-500"
-              />
+          <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_290px]">
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
+                  Server Identity
+                </h3>
+
+                <div className="mt-5 space-y-5">
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase text-slate-500">
+                      Server Name
+                    </label>
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Server name"
+                      maxLength={100}
+                      className="w-full rounded-lg border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase text-slate-500">
+                      Server Icon URL
+                    </label>
+                    <input
+                      value={icon}
+                      onChange={(e) => setIcon(e.target.value)}
+                      placeholder="https://example.com/icon.png"
+                      className="w-full rounded-lg border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500"
+                    />
+                    <p className="mt-2 text-xs text-slate-600">
+                      Image upload will replace this field soon.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
+                  Server Description
+                </h3>
+
+                <p className="mt-1 text-xs text-slate-600">
+                  Tell members what this server is about.
+                </p>
+
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={5}
+                  maxLength={500}
+                  placeholder="A place for your community to hang out."
+                  className="mt-4 w-full resize-none rounded-lg border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500"
+                />
+
+                <div className="mt-2 text-right text-xs text-slate-600">
+                  {description.length}/500
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
+                  Server Safety
+                </h3>
+
+                <div className="mt-4 rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4">
+                  <p className="text-sm font-bold text-yellow-200">
+                    Keep your community recognizable.
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-yellow-100/60">
+                    Choose a clear name and icon so members can easily identify
+                    the server in their sidebar.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase text-slate-500">
-                Icon URL
-              </label>
-              <input
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                placeholder="/logo.png"
-                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white outline-none focus:border-violet-500"
-              />
-            </div>
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-2xl">
+                <div className="h-24 bg-gradient-to-br from-violet-600/70 via-fuchsia-600/40 to-cyan-500/30" />
 
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase text-slate-500">
-                Description
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white outline-none focus:border-violet-500"
-              />
-            </div>
+                <div className="px-5 pb-5">
+                  <div className="-mt-10 flex items-end justify-between">
+                    <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border-4 border-[#111827] bg-violet-600 text-2xl font-black text-white shadow-xl">
+                      {icon ? (
+                        <Image
+                          src={icon}
+                          alt={name || "Server"}
+                          width={80}
+                          height={80}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        getInitials(name || server?.name || "S")
+                      )}
 
-            <button
-              onClick={saveServer}
-              disabled={saving}
-              className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white hover:bg-violet-500 disabled:opacity-50"
-            >
-              <Save size={18} />
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
+                      <div className="absolute inset-0 hidden items-center justify-center bg-black/50 text-white transition group-hover:flex">
+                        <Camera size={20} />
+                      </div>
+                    </div>
+
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-bold text-slate-400">
+                      Preview
+                    </span>
+                  </div>
+
+                  <h3 className="mt-4 truncate text-lg font-black text-white">
+                    {name || "Untitled Server"}
+                  </h3>
+
+                  <p className="mt-2 line-clamp-4 text-sm leading-5 text-slate-400">
+                    {description ||
+                      "No server description yet. Add one so members know what this server is about."}
+                  </p>
+
+                  <div className="mt-5 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                      <p className="text-xs text-slate-500">Members</p>
+                      <p className="mt-1 text-lg font-black text-white">
+                        {members.length || "—"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                      <p className="text-xs text-slate-500">Owner</p>
+                      <p className="mt-1 truncate text-sm font-bold text-white">
+                        {currentMember?.role === "owner" ? "You" : "Server"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={saveServer}
+                disabled={saving || !name.trim()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Save size={18} />
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -278,8 +354,7 @@ async function unbanMember(ban) {
       return (
         <div>
           <h2 className="text-2xl font-black text-white">
-            Members{" "}
-            <span className="text-slate-500">({members.length})</span>
+            Members <span className="text-slate-500">({members.length})</span>
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Manage people inside this server.
@@ -472,13 +547,9 @@ async function unbanMember(ban) {
 
           <div className="mt-6 space-y-3">
             {bansLoading ? (
-              <p className="text-sm text-slate-500">
-                Loading bans...
-              </p>
+              <p className="text-sm text-slate-500">Loading bans...</p>
             ) : bans.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                No banned users.
-              </p>
+              <p className="text-sm text-slate-500">No banned users.</p>
             ) : (
               bans.map((ban) => (
                 <div
@@ -488,7 +559,7 @@ async function unbanMember(ban) {
                   <div className="flex items-center gap-3">
                     <Image
                       src={ban.userId?.avatar || "/logo.png"}
-                      alt={ban.userId?.username}
+                      alt={ban.userId?.username || "Banned User"}
                       width={42}
                       height={42}
                       className="rounded-full"
@@ -557,7 +628,7 @@ async function unbanMember(ban) {
         </aside>
 
         <main className="min-w-0 flex-1 overflow-y-auto p-6 md:p-10">
-          <div className="mx-auto max-w-3xl">{renderContent()}</div>
+          <div className="mx-auto max-w-5xl">{renderContent()}</div>
         </main>
 
         <button
