@@ -92,6 +92,11 @@ export default function ChatArea() {
     }
   }
 
+  function getAuthorId(message) {
+    const author = message?.authorId;
+    return (author?._id || author || "").toString();
+  }
+
   async function loadChannel() {
     const res = await fetch(`/api/channels/get-channels?serverId=${serverId}`);
     const data = await res.json();
@@ -134,8 +139,7 @@ export default function ChatArea() {
   function shouldPlayPing(message) {
     if (!message?.content || message.system) return false;
 
-    const authorId = message.authorId?._id || message.authorId;
-    if (authorId?.toString?.() === session?.user?.id) return false;
+    if (getAuthorId(message) === session?.user?.id) return false;
 
     const username = session?.user?.username;
     if (!username) return false;
@@ -357,17 +361,13 @@ export default function ChatArea() {
             {messages.map((message, index) => {
               const author = message.authorId;
               const isEditing = editingMessage?._id === message._id;
-
               const previousMessage = messages[index - 1];
-              const previousAuthorId =
-                previousMessage?.authorId?._id || previousMessage?.authorId;
-              const currentAuthorId = author?._id || author;
 
               const grouped =
                 previousMessage &&
                 !previousMessage.system &&
                 !message.system &&
-                previousAuthorId?.toString?.() === currentAuthorId?.toString?.();
+                getAuthorId(previousMessage) === getAuthorId(message);
 
               if (message.system) {
                 return (
@@ -419,7 +419,7 @@ export default function ChatArea() {
                   )}
 
                   {grouped ? (
-                    <div className="w-10 shrink-0 pt-1 text-right text-[10px] text-slate-600 opacity-0 transition group-hover:opacity-100">
+                    <div className="w-11 shrink-0 text-right text-[10px] text-slate-600 opacity-0 transition group-hover:opacity-100">
                       {formatTime(message.createdAt)}
                     </div>
                   ) : (
@@ -501,11 +501,7 @@ export default function ChatArea() {
                         </p>
                       </div>
                     ) : (
-                      <p
-                        className={`whitespace-pre-wrap break-words text-slate-100 ${
-                            grouped ? "" : "mt-1"
-                        }`}
-                      >
+                      <p className="whitespace-pre-wrap break-words text-slate-100 leading-[1.375rem]">
                         {renderMessageContent(message.content)}
 
                         {message.edited && grouped && (
