@@ -21,6 +21,9 @@ import {
   Volume2,
   X,
   FolderPlus,
+  UserPlus,
+  Settings,
+  LogOut,
 } from "lucide-react";
 
 import UserPanel from "./UserPanel";
@@ -105,8 +108,11 @@ export default function ChannelSidebar() {
   );
 
   const [server, setServer] = useState(null);
+  const [membership, setMembership] = useState(null);
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [serverMenuOpen, setServerMenuOpen] = useState(false);
 
   const [activeDragChannel, setActiveDragChannel] = useState(null);
 
@@ -138,6 +144,7 @@ export default function ChannelSidebar() {
       const channelsData = await channelsRes.json();
 
       setServer(serverData.server || null);
+      setMembership(serverData.membership || null);
       setChannels(channelsData.channels || []);
     } catch (error) {
       console.error("LOAD_CHANNEL_SIDEBAR_ERROR", error);
@@ -145,6 +152,8 @@ export default function ChannelSidebar() {
       setLoading(false);
     }
   }
+
+  const isOwner = membership?.role === "owner";
 
   const categories = useMemo(
     () =>
@@ -200,6 +209,35 @@ export default function ChannelSidebar() {
       x: e.clientX,
       y: e.clientY,
     });
+  }
+
+  function handleInvitePeople() {
+    setServerMenuOpen(false);
+    console.log("Open invite modal next");
+  }
+
+  function handleEditServer() {
+    setServerMenuOpen(false);
+    console.log("Open edit server modal later");
+  }
+
+  async function handleLeaveServer() {
+    setServerMenuOpen(false);
+
+    const confirmed = confirm(`Leave "${server?.name}"?`);
+    if (!confirmed) return;
+
+    const res = await fetch("/api/servers/leave", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ serverId }),
+    });
+
+    if (!res.ok) return;
+
+    router.push("/app");
   }
 
   function handleEditChannel() {
@@ -455,12 +493,63 @@ export default function ChannelSidebar() {
   return (
     <>
       <aside className="flex w-[270px] flex-col border-r border-white/10 bg-[#0b0f1d]">
-        <div className="flex h-14 items-center justify-between border-b border-white/10 px-4">
-          <h2 className="truncate font-black">
-            {loading ? "Loading..." : server?.name || "Unknown Server"}
-          </h2>
+        <div className="relative">
+          <button
+            onClick={() => setServerMenuOpen((prev) => !prev)}
+            className="flex h-14 w-full items-center justify-between border-b border-white/10 px-4 text-left transition hover:bg-white/[0.04]"
+          >
+            <h2 className="truncate font-black">
+              {loading ? "Loading..." : server?.name || "Unknown Server"}
+            </h2>
 
-          <ChevronDown size={18} className="text-slate-400" />
+            <ChevronDown
+              size={18}
+              className={`shrink-0 text-slate-400 transition ${
+                serverMenuOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {serverMenuOpen && (
+            <>
+              <button
+                className="fixed inset-0 z-[9997]"
+                onClick={() => setServerMenuOpen(false)}
+              />
+
+              <div className="absolute left-2 right-2 top-16 z-[9998] rounded-xl border border-white/10 bg-[#111827] p-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+                <button
+                  onClick={handleInvitePeople}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
+                >
+                  Invite People
+                  <UserPlus size={16} />
+                </button>
+
+                <button
+                  onClick={handleEditServer}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/[0.06] hover:text-white"
+                >
+                  Edit Server
+                  <Settings size={16} />
+                </button>
+
+                {!isOwner && (
+                  <>
+                    <div className="my-1 h-px bg-white/10" />
+
+                    <button
+                      onClick={handleLeaveServer}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                    >
+                      Leave Server
+                      <LogOut size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <DndContext

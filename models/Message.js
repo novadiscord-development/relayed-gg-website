@@ -27,6 +27,11 @@ const MessageSchema = new mongoose.Schema(
       maxlength: 2000,
     },
 
+    system: {
+      type: Boolean,
+      default: false,
+    },
+
     edited: {
       type: Boolean,
       default: false,
@@ -42,4 +47,5 @@ const MessageSchema = new mongoose.Schema(
 
 MessageSchema.index({ channelId: 1, createdAt: -1 });
 
-export default mongoose.models.Message || mongoose.model("Message", MessageSchema);
+export default mongoose.models.Message ||
+  mongoose.model("Message", MessageSchema);

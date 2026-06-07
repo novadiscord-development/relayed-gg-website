@@ -54,7 +54,7 @@ export default function ServerRedirectPage() {
           <h2 className="font-bold">Loading server...</h2>
 
           <p className="mt-2 text-sm text-slate-500">
-            Redirecting to your first channel
+            This may take some time.
           </p>
         </div>
       </div>

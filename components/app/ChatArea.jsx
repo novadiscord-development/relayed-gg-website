@@ -237,13 +237,28 @@ export default function ChatArea() {
               const author = message.authorId;
               const isEditing = editingMessage?._id === message._id;
 
+              if (message.system) {
+                return (
+                  <div
+                    key={message._id}
+                    className="flex items-center gap-3 py-2"
+                  >
+                    <div className="h-px flex-1 bg-white/10" />
+
+                    <span className="max-w-[70%] text-center text-sm text-slate-500">
+                      {message.content}
+                    </span>
+
+                    <div className="h-px flex-1 bg-white/10" />
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={message._id}
                   className={`group relative flex gap-4 rounded-lg px-2 py-2 transition ${
-                    isEditing
-                      ? "bg-white/[0.05]"
-                      : "hover:bg-white/[0.04]"
+                    isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"
                   }`}
                 >
                   {!isEditing && (
@@ -300,9 +315,7 @@ export default function ChatArea() {
                       </span>
 
                       {message.edited && !isEditing && (
-                        <span className="text-xs text-slate-500">
-                          edited
-                        </span>
+                        <span className="text-xs text-slate-500">edited</span>
                       )}
                     </div>
 
