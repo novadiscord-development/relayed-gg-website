@@ -579,7 +579,7 @@ export default function ChatArea() {
     );
   }
 
-  function EmbedComposer() {
+  function renderEmbedComposer() {
     if (!showEmbedComposer) return null;
 
     return (
@@ -1004,7 +1004,7 @@ export default function ChatArea() {
         )}
 
         <TypingIndicator />
-        <EmbedComposer />
+        {renderEmbedComposer()}
 
         <div
           onMouseDown={(e) => {
