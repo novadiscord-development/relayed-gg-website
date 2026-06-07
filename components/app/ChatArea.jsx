@@ -23,6 +23,8 @@ export default function ChatArea() {
   const inputRef = useRef(null);
   const notificationAudioRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const lastTypingAtRef = useRef(0);
+  const typingTimeoutsRef = useRef({});
 
   const [channel, setChannel] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -40,6 +42,7 @@ export default function ChatArea() {
   const [showMentions, setShowMentions] = useState(false);
 
   const [replyingTo, setReplyingTo] = useState(null);
+  const [typingUsers, setTypingUsers] = useState([]);
 
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState("");
@@ -48,6 +51,7 @@ export default function ChatArea() {
     if (!serverId || !channelId) return;
 
     setMessages([]);
+    setTypingUsers([]);
     setHasMoreMessages(true);
     setOldestMessageAt(null);
 
@@ -75,6 +79,8 @@ export default function ChatArea() {
 
         return [...prev, message];
       });
+
+      removeTypingUser(message.authorId?._id || message.authorId);
     }
 
     function handleUpdatedMessage(updatedMessage) {
@@ -91,15 +97,43 @@ export default function ChatArea() {
       );
     }
 
+    function handleTyping(user) {
+      if (!user?.userId) return;
+      if (user.userId === session?.user?.id) return;
+
+      setTypingUsers((prev) => {
+        const exists = prev.some((item) => item.userId === user.userId);
+
+        if (exists) {
+          return prev.map((item) =>
+            item.userId === user.userId ? user : item
+          );
+        }
+
+        return [...prev, user];
+      });
+
+      clearTimeout(typingTimeoutsRef.current[user.userId]);
+
+      typingTimeoutsRef.current[user.userId] = setTimeout(() => {
+        removeTypingUser(user.userId);
+      }, 3000);
+    }
+
     pusherChannel.bind("message:new", handleNewMessage);
     pusherChannel.bind("message:update", handleUpdatedMessage);
     pusherChannel.bind("message:delete", handleDeletedMessage);
+    pusherChannel.bind("user:typing", handleTyping);
 
     return () => {
       pusherChannel.unbind("message:new", handleNewMessage);
       pusherChannel.unbind("message:update", handleUpdatedMessage);
       pusherChannel.unbind("message:delete", handleDeletedMessage);
+      pusherChannel.unbind("user:typing", handleTyping);
       pusherClient.unsubscribe(`channel-${channelId}`);
+
+      Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
+      typingTimeoutsRef.current = {};
     };
   }, [channelId, session?.user?.username, session?.user?.id]);
 
@@ -138,6 +172,33 @@ export default function ChatArea() {
     if (!editingMessage) {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
+  }
+
+  function removeTypingUser(userId) {
+    if (!userId) return;
+
+    clearTimeout(typingTimeoutsRef.current[userId]);
+    delete typingTimeoutsRef.current[userId];
+
+    setTypingUsers((prev) => prev.filter((item) => item.userId !== userId));
+  }
+
+  async function sendTypingEvent() {
+    if (!channelId || editingMessage) return;
+
+    const now = Date.now();
+
+    if (now - lastTypingAtRef.current < 1500) return;
+
+    lastTypingAtRef.current = now;
+
+    fetch("/api/messages/typing", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ channelId }),
+    }).catch(() => {});
   }
 
   function getAuthorId(message) {
@@ -224,6 +285,10 @@ export default function ChatArea() {
   function handleContentChange(e) {
     const value = e.target.value;
     setContent(value);
+
+    if (value.trim()) {
+      sendTypingEvent();
+    }
 
     const match = value.match(/(^|\s)@([a-zA-Z0-9_.-]*)$/);
 
@@ -428,6 +493,28 @@ export default function ChatArea() {
         <span className="truncate text-slate-500">
           {reply.content || "Original message unavailable"}
         </span>
+      </div>
+    );
+  }
+
+  function TypingIndicator() {
+    if (typingUsers.length === 0) return null;
+
+    const names = typingUsers.map((user) => user.username);
+
+    let text = "";
+
+    if (names.length === 1) {
+      text = `${names[0]} is typing...`;
+    } else if (names.length === 2) {
+      text = `${names[0]} and ${names[1]} are typing...`;
+    } else {
+      text = "Several people are typing...";
+    }
+
+    return (
+      <div className="px-1 pt-2 text-xs font-medium text-slate-500">
+        {text}
       </div>
     );
   }
@@ -738,6 +825,8 @@ export default function ChatArea() {
             </button>
           </div>
         )}
+
+        <TypingIndicator />
 
         <div
           onMouseDown={() => focusInput()}
