@@ -3,6 +3,10 @@ import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
+import Channel from "@/models/Channel";
+import Message from "@/models/Message";
+import User from "@/models/User";
+import { pusherServer } from "@/lib/pusher";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -33,7 +37,7 @@ export default async function handler(req, res) {
     const targetMember = await Member.findOne({
       _id: memberId,
       serverId,
-    });
+    }).populate("userId", "username");
 
     if (!targetMember) {
       return res.status(404).json({ message: "Member not found" });
@@ -49,7 +53,41 @@ export default async function handler(req, res) {
       });
     }
 
+    const kickedUsername = targetMember.userId?.username || "Someone";
+
+    const moderator = await User.findById(session.user.id).select("username");
+    const moderatorUsername = moderator?.username || "a moderator";
+
     await Member.findByIdAndDelete(targetMember._id);
+
+    const firstTextChannel = await Channel.findOne({
+      serverId,
+      type: "text",
+    }).sort({
+      position: 1,
+      createdAt: 1,
+    });
+
+    if (firstTextChannel) {
+      let systemMessage = await Message.create({
+        serverId,
+        channelId: firstTextChannel._id,
+        authorId: session.user.id,
+        content: `${kickedUsername} was kicked from the server by ${moderatorUsername}.`,
+        system: true,
+      });
+
+      systemMessage = await systemMessage.populate(
+        "authorId",
+        "username avatar isStaff isAdmin badges"
+      );
+
+      await pusherServer.trigger(
+        `channel-${firstTextChannel._id}`,
+        "message:new",
+        systemMessage
+      );
+    }
 
     return res.status(200).json({
       success: true,
