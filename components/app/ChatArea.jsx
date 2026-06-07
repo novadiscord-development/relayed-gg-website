@@ -2,14 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import {
-  Plus,
-  Gift,
-  Smile,
-  Sticker,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { Plus, Gift, Smile, Sticker, Pencil, Trash2 } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 
 export default function ChatArea() {
@@ -41,7 +34,7 @@ export default function ChatArea() {
     loadMessages();
     loadMembers();
 
-    setTimeout(() => inputRef.current?.focus(), 100);
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, [serverId, channelId]);
 
   useEffect(() => {
@@ -93,6 +86,12 @@ export default function ChatArea() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  function focusInput() {
+    if (!editingMessage) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }
+
   async function loadChannel() {
     const res = await fetch(`/api/channels/get-channels?serverId=${serverId}`);
     const data = await res.json();
@@ -108,9 +107,7 @@ export default function ChatArea() {
     const res = await fetch(`/api/servers/get-members?serverId=${serverId}`);
     const data = await res.json();
 
-    if (res.ok) {
-      setMembers(data.members || []);
-    }
+    if (res.ok) setMembers(data.members || []);
   }
 
   async function loadMessages() {
@@ -130,6 +127,10 @@ export default function ChatArea() {
     }
   }
 
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
   function shouldPlayPing(message) {
     if (!message?.content || message.system) return false;
 
@@ -139,7 +140,11 @@ export default function ChatArea() {
     const username = session?.user?.username;
     if (!username) return false;
 
-    const mentionRegex = new RegExp(`(^|\\s)@${username}(\\s|$)`, "i");
+    const mentionRegex = new RegExp(
+      `(^|\\s)@${escapeRegExp(username)}(?=\\s|$|[.,!?])`,
+      "i"
+    );
+
     return mentionRegex.test(message.content);
   }
 
@@ -174,22 +179,25 @@ export default function ChatArea() {
 
     setShowMentions(false);
     setMentionQuery("");
-
-    setTimeout(() => inputRef.current?.focus(), 0);
+    focusInput();
   }
 
   async function sendMessage(e) {
     e.preventDefault();
 
-    if (!content.trim() || sending) return;
+    if (!content.trim() || sending) {
+      focusInput();
+      return;
+    }
 
     const messageContent = content;
 
-    try {
-      setSending(true);
-      setContent("");
-      setShowMentions(false);
+    setSending(true);
+    setContent("");
+    setShowMentions(false);
+    focusInput();
 
+    try {
       const res = await fetch("/api/messages/send-message", {
         method: "POST",
         headers: {
@@ -205,6 +213,7 @@ export default function ChatArea() {
 
       if (!res.ok) {
         setContent(messageContent);
+        focusInput();
         return;
       }
 
@@ -213,13 +222,12 @@ export default function ChatArea() {
         if (exists) return prev;
         return [...prev, data.message];
       });
-
-      setTimeout(() => inputRef.current?.focus(), 0);
     } catch (error) {
       console.error("SEND_MESSAGE_ERROR", error);
       setContent(messageContent);
     } finally {
       setSending(false);
+      focusInput();
     }
   }
 
@@ -249,11 +257,15 @@ export default function ChatArea() {
 
     setEditingMessage(null);
     setEditContent("");
+    focusInput();
   }
 
   async function handleDeleteMessage(message) {
     const confirmed = confirm("Delete this message?");
-    if (!confirmed) return;
+    if (!confirmed) {
+      focusInput();
+      return;
+    }
 
     const res = await fetch("/api/messages/delete", {
       method: "DELETE",
@@ -268,11 +280,13 @@ export default function ChatArea() {
     if (!res.ok) return;
 
     setMessages((prev) => prev.filter((item) => item._id !== message._id));
+    focusInput();
   }
 
   function cancelEdit() {
     setEditingMessage(null);
     setEditContent("");
+    focusInput();
   }
 
   function formatTime(date) {
@@ -284,9 +298,34 @@ export default function ChatArea() {
     });
   }
 
+  function renderMessageContent(text) {
+    const username = session?.user?.username;
+    const parts = text.split(/(@[a-zA-Z0-9_.-]+)/g);
+
+    return parts.map((part, index) => {
+      if (!part.startsWith("@")) return part;
+
+      const cleanMention = part.slice(1).toLowerCase();
+      const isMe = username && cleanMention === username.toLowerCase();
+
+      return (
+        <span
+          key={index}
+          className={`rounded px-1 font-semibold ${
+            isMe
+              ? "bg-yellow-400/20 text-yellow-200"
+              : "bg-violet-500/20 text-violet-200"
+          }`}
+        >
+          {part}
+        </span>
+      );
+    });
+  }
+
   return (
     <section
-      onClick={() => inputRef.current?.focus()}
+      onMouseDown={focusInput}
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]"
     >
       <audio ref={notificationAudioRef} src="/sounds/ping.mp3" preload="auto" />
@@ -320,7 +359,10 @@ export default function ChatArea() {
 
               if (message.system) {
                 return (
-                  <div key={message._id} className="flex items-center gap-3 py-2">
+                  <div
+                    key={message._id}
+                    className="flex items-center gap-3 py-2"
+                  >
                     <div className="h-px flex-1 bg-white/10" />
                     <span className="max-w-[70%] text-center text-sm text-slate-500">
                       {message.content}
@@ -436,7 +478,7 @@ export default function ChatArea() {
                       </div>
                     ) : (
                       <p className="mt-1 whitespace-pre-wrap break-words text-slate-100">
-                        {message.content}
+                        {renderMessageContent(message.content)}
                       </p>
                     )}
                   </div>
@@ -451,6 +493,7 @@ export default function ChatArea() {
 
       <form
         onSubmit={sendMessage}
+        onMouseDown={(e) => e.stopPropagation()}
         className="relative shrink-0 border-t border-white/10 bg-[#080b18] p-4"
       >
         {showMentions && pingableMembers.length > 0 && (
@@ -488,7 +531,10 @@ export default function ChatArea() {
           </div>
         )}
 
-        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+        <div
+          onMouseDown={() => focusInput()}
+          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3"
+        >
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
@@ -501,7 +547,7 @@ export default function ChatArea() {
             ref={inputRef}
             value={content}
             onChange={handleContentChange}
-            disabled={sending || !!editingMessage}
+            disabled={!!editingMessage}
             placeholder={`Message #${channel?.name || "channel"}`}
             className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
           />
