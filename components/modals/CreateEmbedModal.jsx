@@ -51,17 +51,18 @@ export default function CreateEmbedModal({ isOpen, onClose, channelId, onSent })
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <form
-        onSubmit={sendEmbed}
-        className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-[#0b0f1d] shadow-2xl"
-      >
+<div
+  onMouseDown={(e) => e.stopPropagation()}
+  className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+>
+  <form
+    onSubmit={sendEmbed}
+    onMouseDown={(e) => e.stopPropagation()}
+    className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-[#0b0f1d] shadow-2xl"
+  >
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
           <div>
             <h2 className="text-xl font-black text-white">Create Embed</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Build a Discord-style embed message.
-            </p>
           </div>
 
           <button
