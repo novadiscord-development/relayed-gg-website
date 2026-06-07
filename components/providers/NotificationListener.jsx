@@ -10,13 +10,36 @@ export default function NotificationListener() {
   const { data: session } = useSession();
 
   const audioRef = useRef(null);
+  const audioUnlockedRef = useRef(false);
   const subscribedChannelsRef = useRef(new Set());
 
-  const {
-    addUnread,
-    addMention,
-    clearChannel,
-  } = useNotifications();
+  const { addUnread, addMention, clearChannel } = useNotifications();
+
+  useEffect(() => {
+    function unlockAudio() {
+      if (audioUnlockedRef.current) return;
+
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      audio
+        .play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audioUnlockedRef.current = true;
+        })
+        .catch(() => {});
+    }
+
+    window.addEventListener("click", unlockAudio);
+    window.addEventListener("keydown", unlockAudio);
+
+    return () => {
+      window.removeEventListener("click", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -24,13 +47,29 @@ export default function NotificationListener() {
     loadSubscriptions();
 
     return () => {
-      const pusherClient = getPusherClient();
+      unsubscribeAll();
+    };
+  }, [session?.user?.id]);
 
-      subscribedChannelsRef.current.forEach((channelName) => {
-        pusherClient.unsubscribe(channelName);
-      });
+  useEffect(() => {
+    if (!session?.user?.id) return;
 
-      subscribedChannelsRef.current.clear();
+    function refreshSubscriptions() {
+      loadSubscriptions();
+    }
+
+    window.addEventListener("server:updated", refreshSubscriptions);
+    window.addEventListener("channel:created", refreshSubscriptions);
+    window.addEventListener("channel:updated", refreshSubscriptions);
+    window.addEventListener("channel:deleted", refreshSubscriptions);
+    window.addEventListener("focus", refreshSubscriptions);
+
+    return () => {
+      window.removeEventListener("server:updated", refreshSubscriptions);
+      window.removeEventListener("channel:created", refreshSubscriptions);
+      window.removeEventListener("channel:updated", refreshSubscriptions);
+      window.removeEventListener("channel:deleted", refreshSubscriptions);
+      window.removeEventListener("focus", refreshSubscriptions);
     };
   }, [session?.user?.id]);
 
@@ -41,6 +80,16 @@ export default function NotificationListener() {
       clearChannel(serverId, channelId);
     }
   }, [router.query.serverId, router.query.channelId]);
+
+  function unsubscribeAll() {
+    const pusherClient = getPusherClient();
+
+    subscribedChannelsRef.current.forEach((channelName) => {
+      pusherClient.unsubscribe(channelName);
+    });
+
+    subscribedChannelsRef.current.clear();
+  }
 
   async function loadSubscriptions() {
     try {
@@ -57,7 +106,6 @@ export default function NotificationListener() {
         );
 
         const channelsData = await channelsRes.json();
-
         const channels = channelsData.channels || [];
 
         channels
@@ -65,80 +113,66 @@ export default function NotificationListener() {
           .forEach((channel) => {
             const channelName = `channel-${channel._id}`;
 
-            if (subscribedChannelsRef.current.has(channelName)) {
-              return;
-            }
+            if (subscribedChannelsRef.current.has(channelName)) return;
 
             subscribedChannelsRef.current.add(channelName);
 
-            const pusherChannel =
-              pusherClient.subscribe(channelName);
+            const pusherChannel = pusherClient.subscribe(channelName);
 
-            pusherChannel.bind(
-              "message:new",
-              (message) => {
-                handleIncomingMessage({
-                  serverId: server._id,
-                  channelId: channel._id,
-                  message,
-                });
-              }
-            );
+            pusherChannel.bind("message:new", (message) => {
+              handleIncomingMessage({
+                serverId: server._id,
+                channelId: channel._id,
+                message,
+              });
+            });
           });
       }
     } catch (error) {
-      console.error(
-        "LOAD_NOTIFICATION_SUBSCRIPTIONS_ERROR",
-        error
-      );
+      console.error("LOAD_NOTIFICATION_SUBSCRIPTIONS_ERROR", error);
     }
   }
 
-  function handleIncomingMessage({
-    serverId,
-    channelId,
-    message,
-  }) {
+  function playPingSound() {
+    if (!audioUnlockedRef.current) return;
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  }
+
+  function handleIncomingMessage({ serverId, channelId, message }) {
     const activeServerId = router.query.serverId;
     const activeChannelId = router.query.channelId;
 
-    const authorId =
-      message.authorId?._id || message.authorId;
+    const authorId = message.authorId?._id || message.authorId;
 
-    if (authorId?.toString() === session?.user?.id) {
-      return;
-    }
+    if (authorId?.toString() === session?.user?.id) return;
 
     const viewingChannel =
-      activeServerId === serverId &&
-      activeChannelId === channelId;
+      activeServerId === serverId && activeChannelId === channelId;
 
-    if (viewingChannel) {
-      return;
-    }
+    if (viewingChannel) return;
 
     const mentioned = messageMentionsMe(message);
 
     if (mentioned) {
       addMention(serverId, channelId);
-
-      audioRef.current?.play().catch(() => {});
-    } else {
-      addUnread(serverId, channelId);
+      playPingSound();
+      return;
     }
+
+    addUnread(serverId, channelId);
   }
 
   function messageMentionsMe(message) {
     const username = session?.user?.username;
 
-    if (!message?.content || !username) {
-      return false;
-    }
+    if (!message?.content || !username) return false;
 
-    const escaped = username.replace(
-      /[.*+?^${}()|[\]\\]/g,
-      "\\$&"
-    );
+    const escaped = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
     return new RegExp(
       `(^|\\s)@${escaped}(?=\\s|$|[.,!?])`,
@@ -146,11 +180,5 @@ export default function NotificationListener() {
     ).test(message.content);
   }
 
-  return (
-    <audio
-      ref={audioRef}
-      src="/sounds/ping.mp3"
-      preload="auto"
-    />
-  );
+  return <audio ref={audioRef} src="/sounds/ping.mp3" preload="auto" />;
 }
