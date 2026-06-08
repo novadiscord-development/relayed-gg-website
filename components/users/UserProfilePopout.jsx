@@ -1,9 +1,19 @@
 import Image from "next/image";
-import { MessageCircle, AtSign, Shield, X } from "lucide-react";
+import { useRouter } from "next/router";
+import {
+  MessageCircle,
+  AtSign,
+  Shield,
+  X,
+  ExternalLink,
+} from "lucide-react";
 
 export default function UserProfilePopout({ user, member, presence, onClose }) {
+  const router = useRouter();
+
   if (!user) return null;
 
+  const userId = user._id || user.id;
   const status = presence?.status || "offline";
   const customStatus = presence?.customStatus || "";
 
@@ -24,6 +34,13 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
       : status === "dnd"
       ? "Do Not Disturb"
       : "Offline";
+
+  function viewProfile() {
+    if (!userId) return;
+
+    onClose?.();
+    router.push(`/app/user/${userId}`);
+  }
 
   return (
     <div
@@ -47,7 +64,11 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
 
         <div className="px-5 pb-5">
           <div className="-mt-12 flex items-end justify-between">
-            <div className="relative transition duration-300 hover:scale-105">
+            <button
+              type="button"
+              onClick={viewProfile}
+              className="relative transition duration-300 hover:scale-105"
+            >
               <Image
                 src={user.avatar || user.image || "/logo.png"}
                 alt={user.username || user.name || "User"}
@@ -59,7 +80,7 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
               <span
                 className={`absolute bottom-2 right-2 h-5 w-5 rounded-full border-4 border-[#111827] shadow-lg ${statusColor}`}
               />
-            </div>
+            </button>
 
             {member?.role && (
               <span className="mb-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold capitalize text-slate-300 transition hover:bg-white/[0.1]">
@@ -69,9 +90,15 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
           </div>
 
           <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <h2 className="truncate text-2xl font-black text-white">
-              {user.username || user.name || "Unknown User"}
-            </h2>
+            <button
+              type="button"
+              onClick={viewProfile}
+              className="max-w-full text-left"
+            >
+              <h2 className="truncate text-2xl font-black text-white hover:underline">
+                {user.username || user.name || "Unknown User"}
+              </h2>
+            </button>
 
             <p className="mt-1 truncate text-sm text-slate-400">
               {customStatus || statusLabel}
@@ -104,6 +131,15 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
               Mention
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={viewProfile}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:-translate-y-0.5 hover:bg-white/[0.08] hover:text-white active:translate-y-0"
+          >
+            <ExternalLink size={16} />
+            View Profile
+          </button>
         </div>
       </div>
     </div>
