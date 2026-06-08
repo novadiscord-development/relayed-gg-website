@@ -39,7 +39,6 @@ export default function ChatArea() {
   const typingTimeoutsRef = useRef({});
   const messageRefs = useRef({});
 
-
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [channel, setChannel] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -75,11 +74,10 @@ export default function ChatArea() {
     currentMember?.role
   );
 
-  
-
   useEffect(() => {
     if (!serverId || !channelId) return;
 
+    messageRefs.current = {};
     setMessages([]);
     setTypingUsers([]);
     setHasMoreMessages(true);
@@ -87,6 +85,7 @@ export default function ChatArea() {
     setSelectedMember(null);
     setPreviewImage(null);
     setAttachments([]);
+    setHighlightedMessageId(null);
 
     loadChannel();
     loadMessages(true);
@@ -94,6 +93,38 @@ export default function ChatArea() {
 
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [serverId, channelId]);
+
+  useEffect(() => {
+    function handleJump(event) {
+      const messageId = event.detail?.messageId;
+
+      if (!messageId) return;
+
+      const element = messageRefs.current[messageId];
+
+      if (!element) {
+        console.warn("MESSAGE_NOT_LOADED", messageId);
+        return;
+      }
+
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      setHighlightedMessageId(messageId);
+
+      setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 3000);
+    }
+
+    document.addEventListener("chat:jump-to-message", handleJump);
+
+    return () => {
+      document.removeEventListener("chat:jump-to-message", handleJump);
+    };
+  }, []);
 
   useEffect(() => {
     if (!channelId) return;
@@ -110,34 +141,6 @@ export default function ChatArea() {
 
       removeTypingUser(message.authorId?._id || message.authorId);
     }
-
-    function handleJump(event) {
-        console.log("RECEIVED JUMP EVENT", event.detail);
-
-        const messageId = event.detail?.messageId;
-
-        if (!messageId) return;
-
-        const element = messageRefs.current[messageId];
-
-        console.log("FOUND ELEMENT", element);
-
-        if (!element) {
-          console.warn("MESSAGE_NOT_LOADED", messageId);
-          return;
-        }
-
-        element.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-
-        setHighlightedMessageId(messageId);
-
-        setTimeout(() => {
-          setHighlightedMessageId(null);
-        }, 3000);
-      }
 
     function handleUpdatedMessage(updatedMessage) {
       setMessages((prev) =>
@@ -407,7 +410,6 @@ export default function ChatArea() {
     if (!file) return;
 
     e.preventDefault();
-
     await uploadChatImage(file);
   }
 
@@ -473,6 +475,7 @@ export default function ChatArea() {
       const data = await res.json();
 
       if (!res.ok) {
+        console.error("SEND_MESSAGE_FAILED", data);
         setContent(messageContent);
         setAttachments(messageAttachments);
         setReplyingTo(replyingTo);
@@ -962,16 +965,16 @@ export default function ChatArea() {
                 return (
                   <div
                     key={message._id}
-                      ref={(el) => {
-                      if (el) {
-                        messageRefs.current[message._id] = el;
-                      }
+                    ref={(el) => {
+                      if (el) messageRefs.current[message._id] = el;
                     }}
                     className={`group relative flex gap-4 rounded-lg px-2 transition ${
-                      grouped ? "py-[1px]" : "py-2"
-                    } ${
-                      isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"
-                    }`}
+                      highlightedMessageId === message._id
+                        ? "bg-yellow-500/15 ring-1 ring-yellow-400/40"
+                        : isEditing
+                        ? "bg-white/[0.05]"
+                        : "hover:bg-white/[0.04]"
+                    } ${grouped ? "py-[1px]" : "py-2"}`}
                   >
                     {!isEditing && (
                       <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
