@@ -2,7 +2,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import ServerBar from "@/components/app/ServerBar";
-import { MessageCircle, Shield, UserPlus, CalendarDays, Check } from "lucide-react";
+import {
+  MessageCircle,
+  Shield,
+  UserPlus,
+  CalendarDays,
+  Check,
+  Clock,
+  UserCheck,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function UserProfilePage() {
@@ -14,10 +22,13 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [friendLoading, setFriendLoading] = useState(false);
   const [friendMessage, setFriendMessage] = useState("");
+  const [friendStatus, setFriendStatus] = useState("none");
 
   useEffect(() => {
     if (!userId) return;
+
     loadProfile();
+    loadFriendStatus();
   }, [userId]);
 
   async function loadProfile() {
@@ -38,26 +49,43 @@ export default function UserProfilePage() {
     }
   }
 
+  async function loadFriendStatus() {
+    try {
+      const res = await fetch(`/api/friends/status?userId=${userId}`);
+      const data = await res.json();
+
+      if (res.ok) {
+        setFriendStatus(data.status || "none");
+      }
+    } catch (error) {
+      console.error("LOAD_PROFILE_FRIEND_STATUS_ERROR", error);
+    }
+  }
+
   async function startDM() {
     if (!userId) return;
 
-    const res = await fetch("/api/dms/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId }),
-    });
+    try {
+      const res = await fetch("/api/dms/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (res.ok) {
-      router.push(`/app/me/${data.conversation._id}`);
+      if (res.ok) {
+        router.push(`/app/me/${data.conversation._id}`);
+      }
+    } catch (error) {
+      console.error("START_PROFILE_DM_ERROR", error);
     }
   }
 
   async function sendFriendRequest() {
-    if (!userId || friendLoading) return;
+    if (!userId || friendLoading || friendStatus !== "none") return;
 
     try {
       setFriendLoading(true);
@@ -75,9 +103,11 @@ export default function UserProfilePage() {
 
       if (!res.ok) {
         setFriendMessage(data.message || "Could not send friend request");
+        await loadFriendStatus();
         return;
       }
 
+      setFriendStatus("outgoing");
       setFriendMessage("Friend request sent");
     } catch (error) {
       console.error("SEND_PROFILE_FRIEND_REQUEST_ERROR", error);
@@ -85,6 +115,61 @@ export default function UserProfilePage() {
     } finally {
       setFriendLoading(false);
     }
+  }
+
+  function renderFriendButton() {
+    if (friendStatus === "self") return null;
+
+    if (friendStatus === "friends") {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 px-5 py-3 text-sm font-bold text-green-300"
+        >
+          <UserCheck size={17} />
+          Friends
+        </button>
+      );
+    }
+
+    if (friendStatus === "outgoing") {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-400"
+        >
+          <Check size={17} />
+          Sent
+        </button>
+      );
+    }
+
+    if (friendStatus === "incoming") {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-5 py-3 text-sm font-bold text-yellow-300"
+        >
+          <Clock size={17} />
+          Requested You
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={sendFriendRequest}
+        disabled={friendLoading}
+        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <UserPlus size={17} />
+        {friendLoading ? "Sending..." : "Add Friend"}
+      </button>
+    );
   }
 
   const status = presence?.status || "offline";
@@ -166,6 +251,7 @@ export default function UserProfilePage() {
 
                   <div className="flex flex-wrap gap-3 pb-2">
                     <button
+                      type="button"
                       onClick={startDM}
                       className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-500"
                     >
@@ -173,23 +259,7 @@ export default function UserProfilePage() {
                       Message
                     </button>
 
-                    <button
-                      onClick={sendFriendRequest}
-                      disabled={friendLoading || friendMessage === "Friend request sent"}
-                      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {friendMessage === "Friend request sent" ? (
-                        <>
-                          <Check size={17} />
-                          Sent
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus size={17} />
-                          {friendLoading ? "Sending..." : "Add Friend"}
-                        </>
-                      )}
-                    </button>
+                    {renderFriendButton()}
                   </div>
                 </div>
 

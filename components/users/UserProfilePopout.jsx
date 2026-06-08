@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import {
@@ -8,6 +8,8 @@ import {
   X,
   ExternalLink,
   Check,
+  Clock,
+  UserCheck,
 } from "lucide-react";
 
 export default function UserProfilePopout({ user, member, presence, onClose }) {
@@ -17,9 +19,15 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
   const [friendMessage, setFriendMessage] = useState("");
   const [friendStatus, setFriendStatus] = useState("none");
 
+  const userId = user?._id || user?.id;
+
+  useEffect(() => {
+    if (!userId) return;
+    loadFriendStatus();
+  }, [userId]);
+
   if (!user) return null;
 
-  const userId = user._id || user.id;
   const status = presence?.status || "offline";
   const customStatus = presence?.customStatus || "";
 
@@ -42,13 +50,15 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
       : "Offline";
 
   async function loadFriendStatus() {
-    if (!userId) return;
+    try {
+      const res = await fetch(`/api/friends/status?userId=${userId}`);
+      const data = await res.json();
 
-    const res = await fetch(`/api/friends/status?userId=${userId}`);
-    const data = await res.json();
-
-    if (res.ok) {
-      setFriendStatus(data.status || "none");
+      if (res.ok) {
+        setFriendStatus(data.status || "none");
+      }
+    } catch (error) {
+      console.error("LOAD_POPOUT_FRIEND_STATUS_ERROR", error);
     }
   }
 
@@ -76,7 +86,7 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
   }
 
   async function sendFriendRequest() {
-    if (!userId || friendLoading) return;
+    if (!userId || friendLoading || friendStatus !== "none") return;
 
     try {
       setFriendLoading(true);
@@ -94,9 +104,11 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
 
       if (!res.ok) {
         setFriendMessage(data.message || "Could not send friend request");
+        await loadFriendStatus();
         return;
       }
 
+      setFriendStatus("outgoing");
       setFriendMessage("Friend request sent");
     } catch (error) {
       console.error("SEND_POPOUT_FRIEND_REQUEST_ERROR", error);
@@ -111,6 +123,61 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
 
     onClose?.();
     router.push(`/app/user/${userId}`);
+  }
+
+  function renderFriendButton() {
+    if (friendStatus === "self") return null;
+
+    if (friendStatus === "friends") {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center justify-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 py-3 text-sm font-bold text-green-300"
+        >
+          <UserCheck size={16} />
+          Friends
+        </button>
+      );
+    }
+
+    if (friendStatus === "outgoing") {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-400"
+        >
+          <Check size={16} />
+          Sent
+        </button>
+      );
+    }
+
+    if (friendStatus === "incoming") {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center justify-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/10 py-3 text-sm font-bold text-yellow-300"
+        >
+          <Clock size={16} />
+          Requested You
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={sendFriendRequest}
+        disabled={friendLoading}
+        className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:-translate-y-0.5 hover:bg-white/[0.08] hover:text-white active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <UserPlus size={16} />
+        {friendLoading ? "Sending..." : "Add"}
+      </button>
+    );
   }
 
   return (
@@ -207,26 +274,7 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
               Message
             </button>
 
-            <button
-              type="button"
-              onClick={sendFriendRequest}
-              disabled={
-                friendLoading || friendMessage === "Friend request sent"
-              }
-              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:-translate-y-0.5 hover:bg-white/[0.08] hover:text-white active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {friendMessage === "Friend request sent" ? (
-                <>
-                  <Check size={16} />
-                  Sent
-                </>
-              ) : (
-                <>
-                  <UserPlus size={16} />
-                  {friendLoading ? "Sending..." : "Add"}
-                </>
-              )}
-            </button>
+            {renderFriendButton()}
           </div>
 
           <button
