@@ -35,6 +35,29 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
       ? "Do Not Disturb"
       : "Offline";
 
+  async function startDM() {
+    if (!userId) return;
+
+    try {
+      const res = await fetch("/api/dms/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) return;
+
+      onClose?.();
+      router.push(`/app/me/${data.conversation._id}`);
+    } catch (error) {
+      console.error("START_DM_ERROR", error);
+    }
+  }
+
   function viewProfile() {
     if (!userId) return;
 
@@ -121,7 +144,11 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-bottom-3 duration-500">
-            <button className="flex items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-violet-500 hover:shadow-[0_10px_30px_rgba(124,58,237,0.35)] active:translate-y-0">
+            <button
+              type="button"
+              onClick={startDM}
+              className="flex items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-violet-500 hover:shadow-[0_10px_30px_rgba(124,58,237,0.35)] active:translate-y-0"
+            >
               <MessageCircle size={16} />
               Message
             </button>
