@@ -5,6 +5,9 @@ import { motion } from "framer-motion";
 
 export default function MeHomePage() {
   return (
+        <><Head>
+        <title>Relayed.gg</title>
+      </Head>
     <main className="flex h-screen overflow-hidden bg-[#050712] text-white">
       <ServerBar />
       <DMChannelSidebar />
@@ -65,5 +68,6 @@ export default function MeHomePage() {
         </motion.div>
       </section>
     </main>
+    </>
   );
 }

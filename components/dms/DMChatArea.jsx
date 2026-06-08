@@ -23,12 +23,21 @@ export default function DMChatArea() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
+  const [presence, setPresence] = useState({
+    status: "offline",
+    customStatus: "",
+  });
+
   useEffect(() => {
     if (!conversationId) return;
 
     setMessages([]);
     setReplyingTo(null);
     setSelectedUser(null);
+    setPresence({
+      status: "offline",
+      customStatus: "",
+    });
 
     loadConversation();
     loadMessages();
@@ -73,8 +82,29 @@ export default function DMChatArea() {
     );
   }
 
+  function getPresenceLabel() {
+    if (presence.customStatus?.trim()) {
+      return presence.customStatus.trim();
+    }
+
+    if (presence.status === "online") return "Online";
+    if (presence.status === "idle") return "Idle";
+    if (presence.status === "dnd") return "Do Not Disturb";
+
+    return "Offline";
+  }
+
+  function getPresenceColor() {
+    if (presence.status === "online") return "bg-green-500";
+    if (presence.status === "idle") return "bg-yellow-400";
+    if (presence.status === "dnd") return "bg-red-500";
+
+    return "bg-slate-600";
+  }
+
   function focusInput() {
     if (selectedUser || document.activeElement === inputRef.current) return;
+
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
@@ -90,8 +120,32 @@ export default function DMChatArea() {
       );
 
       setConversation(current || null);
+
+      const otherUser = current?.participants?.find(
+        (user) => user._id !== session?.user?.id
+      );
+
+      if (otherUser?._id) {
+        loadPresence(otherUser._id);
+      }
     } catch (error) {
       console.error("LOAD_DM_CONVERSATION_ERROR", error);
+    }
+  }
+
+  async function loadPresence(userId) {
+    try {
+      const res = await fetch(`/api/presence/get-user?userId=${userId}`);
+      const data = await res.json();
+
+      if (res.ok) {
+        setPresence({
+          status: data.status || "offline",
+          customStatus: data.customStatus || "",
+        });
+      }
+    } catch (error) {
+      console.error("LOAD_DM_PRESENCE_ERROR", error);
     }
   }
 
@@ -206,19 +260,28 @@ export default function DMChatArea() {
     <>
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-[#080b18] px-6">
-          <Image
-            src={otherUser?.avatar || otherUser?.image || "/logo.png"}
-            alt={otherUser?.username || "User"}
-            width={36}
-            height={36}
-            className="h-9 w-9 rounded-full object-cover"
-          />
+          <div className="relative shrink-0">
+            <Image
+              src={otherUser?.avatar || otherUser?.image || "/logo.png"}
+              alt={otherUser?.username || "User"}
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-full object-cover"
+            />
+
+            <span
+              className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#080b18] ${getPresenceColor()}`}
+            />
+          </div>
 
           <div className="min-w-0">
             <h1 className="truncate text-sm font-black text-white">
               {otherUser?.username || otherUser?.name || "Direct Message"}
             </h1>
-            <p className="text-xs text-slate-500">Private conversation</p>
+
+            <p className="truncate text-xs text-slate-500">
+              {getPresenceLabel()}
+            </p>
           </div>
         </div>
 
@@ -227,13 +290,19 @@ export default function DMChatArea() {
           className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
         >
           <div className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <Image
-              src={otherUser?.avatar || otherUser?.image || "/logo.png"}
-              alt={otherUser?.username || "User"}
-              width={72}
-              height={72}
-              className="mb-4 h-18 w-18 rounded-full object-cover"
-            />
+            <div className="relative mb-4 h-[72px] w-[72px]">
+              <Image
+                src={otherUser?.avatar || otherUser?.image || "/logo.png"}
+                alt={otherUser?.username || "User"}
+                width={72}
+                height={72}
+                className="h-[72px] w-[72px] rounded-full object-cover"
+              />
+
+              <span
+                className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-[#101422] ${getPresenceColor()}`}
+              />
+            </div>
 
             <h2 className="text-3xl font-black">
               {otherUser?.username || otherUser?.name || "Direct Message"}
@@ -426,7 +495,7 @@ export default function DMChatArea() {
         <UserProfilePopout
           user={selectedUser}
           member={null}
-          presence={{ status: "offline", customStatus: "" }}
+          presence={presence}
           onClose={() => {
             setSelectedUser(null);
             focusInput();
