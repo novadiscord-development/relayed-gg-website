@@ -1,5 +1,23 @@
 import mongoose from "mongoose";
 
+const ReactionSchema = new mongoose.Schema(
+  {
+    emoji: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    userIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+  },
+  { _id: false }
+);
+
 const AttachmentSchema = new mongoose.Schema(
   {
     url: {

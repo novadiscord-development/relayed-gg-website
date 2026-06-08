@@ -1,3 +1,5 @@
+import FormattedMessage from "@/components/chat/FormattedMessage";
+
 export default function EmbedCard({ embed, setPreviewImage }) {
   if (!embed) return null;
 
@@ -21,18 +23,18 @@ export default function EmbedCard({ embed, setPreviewImage }) {
                   rel="noreferrer"
                   className="break-words text-sm font-black text-blue-300 hover:underline"
                 >
-                  {embed.title}
+                  <FormattedMessage content={embed.title} />
                 </a>
               ) : (
-                <p className="break-words text-sm font-black text-white">
-                  {embed.title}
-                </p>
+                <div className="break-words text-sm font-black text-white">
+                  <FormattedMessage content={embed.title} />
+                </div>
               ))}
 
             {embed.description && (
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-5 text-slate-300">
-                {embed.description}
-              </p>
+              <div className="mt-2 text-sm text-slate-300">
+                <FormattedMessage content={embed.description} />
+              </div>
             )}
           </div>
 
@@ -60,9 +62,9 @@ export default function EmbedCard({ embed, setPreviewImage }) {
         )}
 
         {embed.footer && (
-          <p className="mt-4 truncate text-xs text-slate-500">
-            {embed.footer}
-          </p>
+          <div className="mt-4 text-xs text-slate-500">
+            <FormattedMessage content={embed.footer} />
+          </div>
         )}
       </div>
     </div>
