@@ -3,6 +3,7 @@ import { SessionProvider } from "next-auth/react";
 import { NotificationProvider } from "@/context/NotificationContext";
 import NotificationListener from "@/components/providers/NotificationListener";
 import PresenceProvider from "@/components/providers/PresenceProvider";
+import AnnouncementBar from "@/components/app/AnnouncementBar";
 
 export default function App({ Component, pageProps }) {
   return (
@@ -10,6 +11,7 @@ export default function App({ Component, pageProps }) {
   <NotificationProvider>
     <NotificationListener />
     <PresenceProvider />
+    <AnnouncementBar />
     <Component {...pageProps} />
   </NotificationProvider>
 </SessionProvider>
