@@ -234,12 +234,8 @@ export default function DMChatArea() {
     }, 1600);
   }
 
-  async function handleImageSelect(e) {
-    const file = e.target.files?.[0];
-
+  async function uploadChatImage(file) {
     if (!file) return;
-
-    e.target.value = "";
 
     if (!file.type.startsWith("image/")) {
       alert("Please upload an image.");
@@ -277,6 +273,32 @@ export default function DMChatArea() {
     } finally {
       setUploadingImage(false);
     }
+  }
+
+  async function handleImageSelect(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!file) return;
+
+    await uploadChatImage(file);
+  }
+
+  async function handlePaste(e) {
+    if (editingMessage || uploadingImage) return;
+
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItem = items.find((item) => item.type.startsWith("image/"));
+
+    if (!imageItem) return;
+
+    const file = imageItem.getAsFile();
+
+    if (!file) return;
+
+    e.preventDefault();
+
+    await uploadChatImage(file);
   }
 
   async function loadConversation() {
@@ -529,7 +551,10 @@ export default function DMChatArea() {
 
   return (
     <>
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
+      <section
+        onPaste={handlePaste}
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]"
+      >
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 bg-[#080b18] px-6">
           <div className="relative shrink-0">
             <Image
@@ -866,6 +891,7 @@ export default function DMChatArea() {
               ref={inputRef}
               value={content}
               onChange={handleContentChange}
+              onPaste={handlePaste}
               disabled={!!editingMessage}
               placeholder={
                 uploadingImage
