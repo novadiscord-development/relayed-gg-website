@@ -10,6 +10,7 @@ import {
   UserPlus,
   Inbox,
 } from "lucide-react";
+import { getPusherClient } from "@/lib/pusher-client";
 
 export default function DMChannelSidebar() {
   const router = useRouter();
@@ -23,7 +24,42 @@ export default function DMChannelSidebar() {
 
   useEffect(() => {
     if (!session?.user?.id) return;
+
     loadConversations();
+
+    const pusherClient = getPusherClient();
+    const channelName = `user-${session.user.id}`;
+    const userChannel = pusherClient.subscribe(channelName);
+
+    function handleConversationUpdate({ conversationId, message }) {
+      setConversations((prev) => {
+        const existing = prev.find((item) => item._id === conversationId);
+
+        if (!existing) {
+          loadConversations();
+          return prev;
+        }
+
+        const updated = {
+          ...existing,
+          lastMessageId: message,
+          lastMessageAt: message.createdAt,
+          updatedAt: message.createdAt,
+        };
+
+        return [
+          updated,
+          ...prev.filter((item) => item._id !== conversationId),
+        ];
+      });
+    }
+
+    userChannel.bind("dm:conversation:update", handleConversationUpdate);
+
+    return () => {
+      userChannel.unbind("dm:conversation:update", handleConversationUpdate);
+      pusherClient.unsubscribe(channelName);
+    };
   }, [session?.user?.id]);
 
   async function loadConversations() {
@@ -146,9 +182,7 @@ export default function DMChannelSidebar() {
                 <MessageCircle size={22} />
               </div>
 
-              <p className="text-sm font-bold text-slate-400">
-                No DMs yet
-              </p>
+              <p className="text-sm font-bold text-slate-400">No DMs yet</p>
 
               <p className="mt-1 text-xs leading-5 text-slate-600">
                 Start a conversation from a user profile.
