@@ -27,6 +27,9 @@ export default function DMChannelSidebar() {
 
     loadConversations();
 
+    const handleFocus = () => loadConversations();
+    window.addEventListener("focus", handleFocus);
+
     const pusherClient = getPusherClient();
     const channelName = `user-${session.user.id}`;
     const userChannel = pusherClient.subscribe(channelName);
@@ -47,26 +50,32 @@ export default function DMChannelSidebar() {
           updatedAt: message.createdAt,
         };
 
-        return [
-          updated,
-          ...prev.filter((item) => item._id !== conversationId),
-        ];
+        return [updated, ...prev.filter((item) => item._id !== conversationId)];
       });
     }
 
     userChannel.bind("dm:conversation:update", handleConversationUpdate);
 
     return () => {
+      window.removeEventListener("focus", handleFocus);
       userChannel.unbind("dm:conversation:update", handleConversationUpdate);
       pusherClient.unsubscribe(channelName);
     };
   }, [session?.user?.id]);
 
-  async function loadConversations() {
-    try {
-      setLoading(true);
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    loadConversations(false);
+  }, [activeConversationId, session?.user?.id]);
 
-      const res = await fetch("/api/dms/get-conversations");
+  async function loadConversations(showLoading = true) {
+    try {
+      if (showLoading) setLoading(true);
+
+      const res = await fetch("/api/dms/get-conversations", {
+        cache: "no-store",
+      });
+
       const data = await res.json();
 
       if (res.ok) {
@@ -79,9 +88,13 @@ export default function DMChannelSidebar() {
     }
   }
 
+  function sameId(a, b) {
+    return (a || "").toString() === (b || "").toString();
+  }
+
   function getOtherUser(conversation) {
     return conversation.participants?.find(
-      (user) => user._id !== session?.user?.id
+      (user) => !sameId(user._id, session?.user?.id)
     );
   }
 
@@ -91,10 +104,9 @@ export default function DMChannelSidebar() {
     if (!message) return "No messages yet";
     if (message.deleted) return "Message deleted";
 
-    const authorName =
-      message.authorId?._id === session?.user?.id
-        ? "You"
-        : message.authorId?.username || "User";
+    const authorName = sameId(message.authorId?._id, session?.user?.id)
+      ? "You"
+      : message.authorId?.username || "User";
 
     return `${authorName}: ${message.content || "Sent a message"}`;
   }
