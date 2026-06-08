@@ -13,6 +13,7 @@ export default function DMChatArea() {
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const stopTypingTimeoutRef = useRef(null);
@@ -25,6 +26,10 @@ export default function DMChatArea() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [typingUsers, setTypingUsers] = useState({});
+
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState("");
@@ -43,6 +48,8 @@ export default function DMChatArea() {
     setEditingMessage(null);
     setEditContent("");
     setTypingUsers({});
+    setAttachments([]);
+    setPreviewImage(null);
     setPresence({ status: "offline", customStatus: "" });
 
     loadConversation();
@@ -59,7 +66,9 @@ export default function DMChatArea() {
 
     function handleNewMessage(message) {
       setMessages((prev) =>
-        prev.some((item) => item._id === message._id) ? prev : [...prev, message]
+        prev.some((item) => item._id === message._id)
+          ? prev
+          : [...prev, message]
       );
     }
 
@@ -72,8 +81,12 @@ export default function DMChatArea() {
     }
 
     function handleDeletedMessage({ messageId }) {
-      setMessages((prev) => prev.filter((message) => message._id !== messageId));
+      setMessages((prev) =>
+        prev.filter((message) => message._id !== messageId)
+      );
+
       if (replyingTo?._id === messageId) setReplyingTo(null);
+
       if (editingMessage?._id === messageId) {
         setEditingMessage(null);
         setEditContent("");
@@ -177,13 +190,21 @@ export default function DMChatArea() {
 
   function getSelectedUserPresence() {
     const otherUser = getOtherUserFromConversation();
+
     return sameId(getUserId(selectedUser), getUserId(otherUser))
       ? presence
       : { status: "offline", customStatus: "" };
   }
 
   function focusInput() {
-    if (selectedUser || editingMessage || document.activeElement === inputRef.current) return;
+    if (
+      selectedUser ||
+      editingMessage ||
+      document.activeElement === inputRef.current
+    ) {
+      return;
+    }
+
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
@@ -213,6 +234,51 @@ export default function DMChatArea() {
     }, 1600);
   }
 
+  async function handleImageSelect(e) {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    e.target.value = "";
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload an image.");
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      alert("Image must be under 8MB.");
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload/chat-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Image upload failed");
+        return;
+      }
+
+      setAttachments((prev) => [...prev, data.attachment]);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    } catch (error) {
+      console.error("UPLOAD_DM_IMAGE_ERROR", error);
+      alert("Image upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
   async function loadConversation() {
     try {
       const res = await fetch("/api/dms/get-conversations");
@@ -227,7 +293,10 @@ export default function DMChatArea() {
       setConversation(current || null);
 
       const otherUser = getOtherUserFromConversation(current);
-      if (otherUser) await loadPresence(getUserId(otherUser));
+
+      if (otherUser) {
+        await loadPresence(getUserId(otherUser));
+      }
     } catch (error) {
       console.error("LOAD_DM_CONVERSATION_ERROR", error);
     }
@@ -299,6 +368,7 @@ export default function DMChatArea() {
     });
 
     const data = await res.json();
+
     if (!res.ok) return;
 
     setMessages((prev) =>
@@ -341,16 +411,18 @@ export default function DMChatArea() {
   async function sendMessage(e) {
     e.preventDefault();
 
-    if (!content.trim() || sending || editingMessage) {
+    if ((!content.trim() && attachments.length === 0) || sending || editingMessage) {
       focusInput();
       return;
     }
 
     const messageContent = content;
+    const messageAttachments = attachments;
     const replyToId = replyingTo?._id || null;
 
     setSending(true);
     setContent("");
+    setAttachments([]);
     setReplyingTo(null);
     emitTyping(false);
     focusInput();
@@ -359,13 +431,19 @@ export default function DMChatArea() {
       const res = await fetch("/api/dms/send-message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId, content: messageContent, replyToId }),
+        body: JSON.stringify({
+          conversationId,
+          content: messageContent,
+          replyToId,
+          attachments: messageAttachments,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         setContent(messageContent);
+        setAttachments(messageAttachments);
         setReplyingTo(replyingTo);
         return;
       }
@@ -378,6 +456,7 @@ export default function DMChatArea() {
     } catch (error) {
       console.error("SEND_DM_MESSAGE_ERROR", error);
       setContent(messageContent);
+      setAttachments(messageAttachments);
       setReplyingTo(replyingTo);
     } finally {
       setSending(false);
@@ -412,6 +491,35 @@ export default function DMChatArea() {
         <span className="truncate text-slate-500">
           {reply.content || "Original message unavailable"}
         </span>
+      </div>
+    );
+  }
+
+  function MessageAttachments({ message }) {
+    const messageAttachments = message.attachments || [];
+
+    if (!messageAttachments.length) return null;
+
+    return (
+      <div className="mt-2 flex flex-wrap gap-2">
+        {messageAttachments.map((attachment, index) => {
+          if (attachment.type !== "image") return null;
+
+          return (
+            <button
+              key={`${attachment.url}-${index}`}
+              type="button"
+              onClick={() => setPreviewImage(attachment.url)}
+              className="overflow-hidden rounded-xl border border-white/10 bg-black/20 transition hover:opacity-90"
+            >
+              <img
+                src={attachment.url}
+                alt={attachment.name || "Uploaded image"}
+                className="max-h-[320px] max-w-[420px] object-contain"
+              />
+            </button>
+          );
+        })}
       </div>
     );
   }
@@ -499,7 +607,9 @@ export default function DMChatArea() {
                     key={message._id}
                     className={`group relative flex gap-4 rounded-lg px-2 transition ${
                       grouped ? "py-[1px]" : "py-2"
-                    } ${isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"}`}
+                    } ${
+                      isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"
+                    }`}
                   >
                     {!isEditing && (
                       <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
@@ -629,17 +739,21 @@ export default function DMChatArea() {
                           </p>
                         </div>
                       ) : (
-                        message.content && (
-                          <p className="whitespace-pre-wrap break-words leading-[1.375rem] text-slate-100">
-                            {message.content}
+                        <>
+                          {message.content && (
+                            <p className="whitespace-pre-wrap break-words leading-[1.375rem] text-slate-100">
+                              {message.content}
 
-                            {message.edited && grouped && (
-                              <span className="ml-2 text-xs text-slate-500">
-                                edited
-                              </span>
-                            )}
-                          </p>
-                        )
+                              {message.edited && grouped && (
+                                <span className="ml-2 text-xs text-slate-500">
+                                  edited
+                                </span>
+                              )}
+                            </p>
+                          )}
+
+                          <MessageAttachments message={message} />
+                        </>
                       )}
                     </div>
                   </div>
@@ -659,6 +773,35 @@ export default function DMChatArea() {
           {typingText && !editingMessage && (
             <div className="mb-2 px-2 text-xs font-semibold text-slate-500 animate-in fade-in slide-in-from-bottom-1 duration-150">
               {typingText}
+            </div>
+          )}
+
+          {attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {attachments.map((attachment, index) => (
+                <div
+                  key={`${attachment.url}-${index}`}
+                  className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30"
+                >
+                  <img
+                    src={attachment.url}
+                    alt={attachment.name || "Image preview"}
+                    className="h-24 w-24 object-cover"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAttachments((prev) =>
+                        prev.filter((_, itemIndex) => itemIndex !== index)
+                      )
+                    }
+                    className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-red-500"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -695,6 +838,14 @@ export default function DMChatArea() {
             </div>
           )}
 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+
           <div
             onMouseDown={(e) => {
               if (e.target === e.currentTarget) focusInput();
@@ -703,8 +854,10 @@ export default function DMChatArea() {
           >
             <button
               type="button"
+              disabled={uploadingImage || !!editingMessage}
               onMouseDown={(e) => e.preventDefault()}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-300 hover:bg-violet-600 hover:text-white"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-300 hover:bg-violet-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus size={18} />
             </button>
@@ -715,7 +868,9 @@ export default function DMChatArea() {
               onChange={handleContentChange}
               disabled={!!editingMessage}
               placeholder={
-                editingMessage
+                uploadingImage
+                  ? "Uploading image..."
+                  : editingMessage
                   ? "Finish editing your message"
                   : `Message ${otherUser?.username || ""}`
               }
@@ -740,6 +895,25 @@ export default function DMChatArea() {
             focusInput();
           }}
         />
+      )}
+
+      {previewImage && (
+        <div
+          onMouseDown={() => setPreviewImage(null)}
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm"
+        >
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            className="max-h-full max-w-full"
+          >
+            <img
+              src={previewImage}
+              alt="Image preview"
+              className="max-h-[90vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
+            />
+          </button>
+        </div>
       )}
     </>
   );

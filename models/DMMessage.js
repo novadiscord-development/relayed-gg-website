@@ -70,6 +70,16 @@ const DMAttachmentSchema = new mongoose.Schema(
       default: "file",
     },
 
+    width: {
+      type: Number,
+      default: 0,
+    },
+
+    height: {
+      type: Number,
+      default: 0,
+    },
+
     name: {
       type: String,
       trim: true,

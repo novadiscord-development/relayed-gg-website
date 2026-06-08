@@ -21,19 +21,40 @@ export default async function handler(req, res) {
 
     await connectDB();
 
-    const { conversationId, content, replyToId = null } = req.body;
+    const {
+      conversationId,
+      content = "",
+      replyToId = null,
+      attachments = [],
+    } = req.body;
+
+    const cleanContent = content.trim();
+    const cleanAttachments = Array.isArray(attachments)
+      ? attachments.filter((item) => item?.url)
+      : [];
 
     if (!conversationId) {
       return res.status(400).json({ message: "Conversation ID is required" });
     }
 
-    if (!content?.trim()) {
+    if (!cleanContent && cleanAttachments.length === 0) {
       return res.status(400).json({ message: "Message cannot be empty" });
     }
 
-    if (content.length > 2000) {
+    if (cleanContent.length > 2000) {
       return res.status(400).json({ message: "Message is too long" });
     }
+
+    if (cleanAttachments.length > 10) {
+      return res.status(400).json({ message: "Too many attachments" });
+    }
+
+    const safeAttachments = cleanAttachments.map((attachment) => ({
+      url: attachment.url,
+      type: attachment.type || "image",
+      name: attachment.name || "",
+      size: attachment.size || 0,
+    }));
 
     const conversation = await Conversation.findById(conversationId);
 
@@ -66,7 +87,8 @@ export default async function handler(req, res) {
       conversationId,
       authorId: session.user.id,
       replyToId: replyToMessage?._id || null,
-      content: content.trim(),
+      content: cleanContent,
+      attachments: safeAttachments,
     });
 
     await Conversation.findByIdAndUpdate(conversationId, {
