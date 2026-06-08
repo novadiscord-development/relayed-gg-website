@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Plus, Gift, Smile, Reply, X } from "lucide-react";
+import { Plus, Gift, Smile, Reply, X, Pencil, Trash2 } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import UserProfilePopout from "@/components/users/UserProfilePopout";
 
@@ -23,6 +23,9 @@ export default function DMChatArea() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [editContent, setEditContent] = useState("");
+
   const [presence, setPresence] = useState({
     status: "offline",
     customStatus: "",
@@ -34,6 +37,8 @@ export default function DMChatArea() {
     setMessages([]);
     setReplyingTo(null);
     setSelectedUser(null);
+    setEditingMessage(null);
+    setEditContent("");
     setPresence({
       status: "offline",
       customStatus: "",
@@ -59,13 +64,40 @@ export default function DMChatArea() {
       );
     }
 
+    function handleUpdatedMessage(updatedMessage) {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message._id === updatedMessage._id ? updatedMessage : message
+        )
+      );
+    }
+
+    function handleDeletedMessage({ messageId }) {
+      setMessages((prev) =>
+        prev.filter((message) => message._id !== messageId)
+      );
+
+      if (replyingTo?._id === messageId) {
+        setReplyingTo(null);
+      }
+
+      if (editingMessage?._id === messageId) {
+        setEditingMessage(null);
+        setEditContent("");
+      }
+    }
+
     pusherChannel.bind("dm:message:new", handleNewMessage);
+    pusherChannel.bind("dm:message:update", handleUpdatedMessage);
+    pusherChannel.bind("dm:message:delete", handleDeletedMessage);
 
     return () => {
       pusherChannel.unbind("dm:message:new", handleNewMessage);
+      pusherChannel.unbind("dm:message:update", handleUpdatedMessage);
+      pusherChannel.unbind("dm:message:delete", handleDeletedMessage);
       pusherClient.unsubscribe(`dm-${conversationId}`);
     };
-  }, [conversationId]);
+  }, [conversationId, replyingTo?._id, editingMessage?._id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -113,7 +145,14 @@ export default function DMChatArea() {
   }
 
   function focusInput() {
-    if (selectedUser || document.activeElement === inputRef.current) return;
+    if (
+      selectedUser ||
+      editingMessage ||
+      document.activeElement === inputRef.current
+    ) {
+      return;
+    }
+
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
@@ -177,13 +216,82 @@ export default function DMChatArea() {
 
   function startReply(message) {
     setReplyingTo(message);
+    setEditingMessage(null);
+    setEditContent("");
+    focusInput();
+  }
+
+  function startEdit(message) {
+    setEditingMessage(message);
+    setEditContent(message.content || "");
+    setReplyingTo(null);
+  }
+
+  function cancelEdit() {
+    setEditingMessage(null);
+    setEditContent("");
+    focusInput();
+  }
+
+  async function handleSaveEdit() {
+    if (!editingMessage || !editContent.trim()) return;
+
+    const res = await fetch("/api/dms/update-message", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messageId: editingMessage._id,
+        content: editContent,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) return;
+
+    setMessages((prev) =>
+      prev.map((message) =>
+        message._id === data.message._id ? data.message : message
+      )
+    );
+
+    setEditingMessage(null);
+    setEditContent("");
+    focusInput();
+  }
+
+  async function handleDeleteMessage(message) {
+    if (!confirm("Delete this message?")) {
+      focusInput();
+      return;
+    }
+
+    const res = await fetch("/api/dms/delete-message", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId: message._id }),
+    });
+
+    if (!res.ok) return;
+
+    setMessages((prev) => prev.filter((item) => item._id !== message._id));
+
+    if (replyingTo?._id === message._id) {
+      setReplyingTo(null);
+    }
+
+    if (editingMessage?._id === message._id) {
+      setEditingMessage(null);
+      setEditContent("");
+    }
+
     focusInput();
   }
 
   async function sendMessage(e) {
     e.preventDefault();
 
-    if (!content.trim() || sending) {
+    if (!content.trim() || sending || editingMessage) {
       focusInput();
       return;
     }
@@ -337,23 +445,52 @@ export default function DMChatArea() {
                   !message.replyToId &&
                   getAuthorId(previousMessage) === getAuthorId(message);
 
+                const isAuthor = sameId(getAuthorId(message), session?.user?.id);
+                const isEditing = editingMessage?._id === message._id;
+
                 return (
                   <div
                     key={message._id}
-                    className={`group relative flex gap-4 rounded-lg px-2 transition hover:bg-white/[0.04] ${
+                    className={`group relative flex gap-4 rounded-lg px-2 transition ${
                       grouped ? "py-[1px]" : "py-2"
+                    } ${
+                      isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"
                     }`}
                   >
-                    <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => startReply(message)}
-                        className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                      >
-                        <Reply size={16} />
-                      </button>
-                    </div>
+                    {!isEditing && (
+                      <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => startReply(message)}
+                          className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                        >
+                          <Reply size={16} />
+                        </button>
+
+                        {isAuthor && (
+                          <>
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => startEdit(message)}
+                              className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                            >
+                              <Pencil size={16} />
+                            </button>
+
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleDeleteMessage(message)}
+                              className="p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     {grouped ? (
                       <div className="w-11 shrink-0 text-right text-[10px] text-slate-600 opacity-0 transition group-hover:opacity-100">
@@ -405,13 +542,64 @@ export default function DMChatArea() {
                           <span className="text-xs text-slate-500">
                             {formatTime(message.createdAt)}
                           </span>
+
+                          {message.edited && !isEditing && (
+                            <span className="text-xs text-slate-500">
+                              edited
+                            </span>
+                          )}
                         </div>
                       )}
 
-                      {message.content && (
-                        <p className="whitespace-pre-wrap break-words leading-[1.375rem] text-slate-100">
-                          {message.content}
-                        </p>
+                      {isEditing ? (
+                        <div className={grouped ? "mt-0" : "mt-2"}>
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") cancelEdit();
+
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSaveEdit();
+                              }
+                            }}
+                            rows={3}
+                            autoFocus
+                            className="w-full resize-none rounded-lg border border-white/10 bg-[#0b0f1d] px-3 py-2 text-sm text-white outline-none focus:border-violet-500"
+                          />
+
+                          <p className="mt-2 text-xs text-slate-500">
+                            escape to{" "}
+                            <button
+                              type="button"
+                              onClick={cancelEdit}
+                              className="text-blue-400 hover:underline"
+                            >
+                              cancel
+                            </button>{" "}
+                            • enter to{" "}
+                            <button
+                              type="button"
+                              onClick={handleSaveEdit}
+                              className="text-blue-400 hover:underline"
+                            >
+                              save
+                            </button>
+                          </p>
+                        </div>
+                      ) : (
+                        message.content && (
+                          <p className="whitespace-pre-wrap break-words leading-[1.375rem] text-slate-100">
+                            {message.content}
+
+                            {message.edited && grouped && (
+                              <span className="ml-2 text-xs text-slate-500">
+                                edited
+                              </span>
+                            )}
+                          </p>
+                        )
                       )}
                     </div>
                   </div>
@@ -479,8 +667,13 @@ export default function DMChatArea() {
               ref={inputRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={`Message ${otherUser?.username || ""}`}
-              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+              disabled={!!editingMessage}
+              placeholder={
+                editingMessage
+                  ? "Finish editing your message"
+                  : `Message ${otherUser?.username || ""}`
+              }
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
             />
 
             <div className="flex shrink-0 items-center gap-3 text-slate-400">
@@ -502,11 +695,7 @@ export default function DMChatArea() {
         <UserProfilePopout
           user={selectedUser}
           member={null}
-          presence={
-            selectedUser?._id?.toString() === otherUser?._id?.toString()
-              ? presence
-              : { status: "offline", customStatus: "" }
-          }
+          presence={getSelectedUserPresence()}
           onClose={() => {
             setSelectedUser(null);
             focusInput();
