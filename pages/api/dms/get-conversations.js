@@ -3,6 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
 import Conversation from "@/models/Conversation";
+import DMMessage from "@/models/DMMessage";
 import DMNotification from "@/models/DMNotification";
 
 export default async function handler(req, res) {
@@ -25,7 +26,8 @@ export default async function handler(req, res) {
       .populate("participants", "username avatar image isStaff isAdmin badges")
       .populate({
         path: "lastMessageId",
-        select: "content authorId createdAt deleted",
+        select: "content authorId createdAt deleted attachments",
+        model: DMMessage,
         populate: {
           path: "authorId",
           select: "username avatar image",
@@ -48,14 +50,16 @@ export default async function handler(req, res) {
       };
     });
 
-    const conversationsWithNotifications = conversations.map((conversation) => ({
-      ...conversation,
-      notification: notificationMap[conversation._id.toString()] || {
-        unread: false,
-        mentions: 0,
-        lastMessageAt: null,
-      },
-    }));
+    const conversationsWithNotifications = conversations.map(
+      (conversation) => ({
+        ...conversation,
+        notification: notificationMap[conversation._id.toString()] || {
+          unread: false,
+          mentions: 0,
+          lastMessageAt: null,
+        },
+      })
+    );
 
     return res.status(200).json({
       conversations: conversationsWithNotifications,

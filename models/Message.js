@@ -1,5 +1,43 @@
 import mongoose from "mongoose";
 
+const AttachmentSchema = new mongoose.Schema(
+  {
+    url: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    type: {
+      type: String,
+      enum: ["image", "video", "file"],
+      default: "file",
+    },
+
+    name: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    size: {
+      type: Number,
+      default: 0,
+    },
+
+    width: {
+      type: Number,
+      default: 0,
+    },
+
+    height: {
+      type: Number,
+      default: 0,
+    },
+  },
+  { _id: false }
+);
+
 const MessageSchema = new mongoose.Schema(
   {
     serverId: {
@@ -106,43 +144,7 @@ const MessageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const AttachmentSchema = new mongoose.Schema(
-  {
-    url: {
-      type: String,
-      required: true,
-      trim: true,
-    },
 
-    type: {
-      type: String,
-      enum: ["image", "video", "file"],
-      default: "file",
-    },
-
-    name: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
-    size: {
-      type: Number,
-      default: 0,
-    },
-
-    width: {
-      type: Number,
-      default: 0,
-    },
-
-    height: {
-      type: Number,
-      default: 0,
-    },
-  },
-  { _id: false }
-);
 
 MessageSchema.index({ channelId: 1, createdAt: -1 });
 
