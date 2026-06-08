@@ -20,13 +20,13 @@ export default function ChatMessageList({
   setReplyingTo,
   getAuthorId,
   formatTime,
-  renderMessageContent,
   openUserProfile,
   startReply,
   handleSaveEdit,
   handleDeleteMessage,
   cancelEdit,
   setPreviewImage,
+  onToggleReaction,
 }) {
   return (
     <div
@@ -77,6 +77,7 @@ export default function ChatMessageList({
               handleDeleteMessage={handleDeleteMessage}
               cancelEdit={cancelEdit}
               setPreviewImage={setPreviewImage}
+              onToggleReaction={onToggleReaction}
             />
           ))}
 

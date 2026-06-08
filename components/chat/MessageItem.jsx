@@ -4,6 +4,7 @@ import ReplyPreview from "@/components/chat/ReplyPreview";
 import MessageAttachments from "@/components/chat/MessageAttachments";
 import EmbedCard from "@/components/chat/EmbedCard";
 import FormattedMessage from "@/components/chat/FormattedMessage";
+import ReactionBar from "@/components/chat/ReactionBar";
 
 export default function MessageItem({
   message,
@@ -25,6 +26,7 @@ export default function MessageItem({
   handleDeleteMessage,
   cancelEdit,
   setPreviewImage,
+  onToggleReaction,
 }) {
   const author = message.authorId;
   const isEditing = editingMessage?._id === message._id;
@@ -62,9 +64,9 @@ export default function MessageItem({
         highlightedMessageId === message._id
           ? "bg-yellow-500/15 ring-1 ring-yellow-400/40"
           : isEditing
-          ? "bg-white/[0.05]"
-          : "hover:bg-white/[0.04]"
-      } ${grouped ? "py-[1px]" : "py-2"}`}
+          ? "bg-white/5"
+          : "hover:bg-white/4"
+      } ${grouped ? "py-px" : "py-2"}`}
     >
       {!isEditing && (
         <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
@@ -72,7 +74,7 @@ export default function MessageItem({
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => startReply(message)}
-            className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+            className="p-2 text-slate-400 hover:bg-white/6 hover:text-white"
           >
             <Reply size={16} />
           </button>
@@ -86,7 +88,7 @@ export default function MessageItem({
                 setEditContent(message.content || "");
                 setReplyingTo(null);
               }}
-              className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+              className="p-2 text-slate-400 hover:bg-white/6 hover:text-white"
             >
               <Pencil size={16} />
             </button>
@@ -230,6 +232,12 @@ export default function MessageItem({
                 ))}
               </div>
             )}
+
+            <ReactionBar
+              message={message}
+              session={session}
+              onToggleReaction={onToggleReaction}
+            />
           </>
         )}
       </div>

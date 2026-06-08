@@ -589,30 +589,32 @@ export default function ChatArea() {
     });
   }
 
-  function renderMessageContent(text = "") {
-    const username = session?.user?.username;
-    const parts = text.split(/(@[a-zA-Z0-9_.-]+)/g);
-
-    return parts.map((part, index) => {
-      if (!part.startsWith("@")) return part;
-
-      const cleanMention = part.slice(1).toLowerCase();
-      const isMe = username && cleanMention === username.toLowerCase();
-
-      return (
-        <span
-          key={index}
-          className={`rounded px-1 font-semibold ${
-            isMe
-              ? "bg-yellow-400/20 text-yellow-200"
-              : "bg-violet-500/20 text-violet-200"
-          }`}
-        >
-          {part}
-        </span>
-      );
+  async function handleToggleReaction(message, emoji) {
+  try {
+    const res = await fetch("/api/messages/toggle-reaction", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messageId: message._id,
+        emoji,
+      }),
     });
+
+    const data = await res.json();
+
+    if (!res.ok) return;
+
+    setMessages((prev) =>
+      prev.map((item) =>
+        item._id === data.message._id ? data.message : item
+      )
+    );
+  } catch (error) {
+    console.error("TOGGLE_REACTION_ERROR", error);
   }
+}
 
   return (
     <>
@@ -639,11 +641,11 @@ export default function ChatArea() {
           setReplyingTo={setReplyingTo}
           getAuthorId={getAuthorId}
           formatTime={formatTime}
-          renderMessageContent={renderMessageContent}
           openUserProfile={openUserProfile}
           startReply={startReply}
           handleSaveEdit={handleSaveEdit}
           handleDeleteMessage={handleDeleteMessage}
+          onToggleReaction={handleToggleReaction}
           cancelEdit={cancelEdit}
           setPreviewImage={setPreviewImage}
         />
