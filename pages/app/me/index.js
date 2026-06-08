@@ -2,6 +2,7 @@ import ServerBar from "@/components/app/ServerBar";
 import DMChannelSidebar from "@/components/dms/DMChannelSidebar";
 import { MessageCircle, UserPlus, Users, Inbox } from "lucide-react";
 import { motion } from "framer-motion";
+import Head from "next/head";
 
 export default function MeHomePage() {
   return (
