@@ -17,10 +17,7 @@ function contentMentionsUsername(content, username) {
 
   const escaped = escapeRegExp(username);
 
-  return new RegExp(
-    `(^|\\s)@${escaped}(?=\\s|$|[.,!?])`,
-    "i"
-  ).test(content);
+  return new RegExp(`(^|\\s)@${escaped}(?=\\s|$|[.,!?])`, "i").test(content);
 }
 
 export default async function handler(req, res) {
@@ -37,15 +34,42 @@ export default async function handler(req, res) {
 
     await connectDB();
 
-    const { channelId, content, replyToId = null } = req.body;
+    const {
+      channelId,
+      content = "",
+      replyToId = null,
+      attachments = [],
+    } = req.body;
 
-    if (!channelId || !content?.trim()) {
+    const cleanContent = content.trim();
+    const cleanAttachments = Array.isArray(attachments)
+      ? attachments.filter((item) => item?.url)
+      : [];
+
+    if (!channelId) {
+      return res.status(400).json({ message: "Channel ID is required" });
+    }
+
+    if (!cleanContent && cleanAttachments.length === 0) {
       return res.status(400).json({ message: "Message cannot be empty" });
     }
 
-    if (content.length > 2000) {
+    if (cleanContent.length > 2000) {
       return res.status(400).json({ message: "Message is too long" });
     }
+
+    if (cleanAttachments.length > 10) {
+      return res.status(400).json({ message: "Too many attachments" });
+    }
+
+    const safeAttachments = cleanAttachments.map((attachment) => ({
+      url: attachment.url,
+      type: attachment.type || "image",
+      name: attachment.name || "",
+      size: attachment.size || 0,
+      width: attachment.width || 0,
+      height: attachment.height || 0,
+    }));
 
     const channel = await Channel.findById(channelId);
 
@@ -81,7 +105,8 @@ export default async function handler(req, res) {
       channelId,
       authorId: session.user.id,
       replyToId: replyToMessage?._id || null,
-      content: content.trim(),
+      content: cleanContent,
+      attachments: safeAttachments,
     });
 
     message = await Message.findById(message._id)
@@ -105,7 +130,7 @@ export default async function handler(req, res) {
     await Promise.all(
       members.map((member) => {
         const mentioned = contentMentionsUsername(
-          content,
+          cleanContent,
           member.userId?.username
         );
 

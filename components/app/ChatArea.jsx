@@ -33,10 +33,14 @@ export default function ChatArea() {
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const lastTypingAtRef = useRef(0);
   const typingTimeoutsRef = useRef({});
+  const messageRefs = useRef({});
 
+
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [channel, setChannel] = useState(null);
   const [messages, setMessages] = useState([]);
   const [members, setMembers] = useState([]);
@@ -45,6 +49,8 @@ export default function ChatArea() {
   const [previewImage, setPreviewImage] = useState(null);
 
   const [content, setContent] = useState("");
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
@@ -69,6 +75,8 @@ export default function ChatArea() {
     currentMember?.role
   );
 
+  
+
   useEffect(() => {
     if (!serverId || !channelId) return;
 
@@ -78,6 +86,7 @@ export default function ChatArea() {
     setOldestMessageAt(null);
     setSelectedMember(null);
     setPreviewImage(null);
+    setAttachments([]);
 
     loadChannel();
     loadMessages(true);
@@ -307,6 +316,73 @@ export default function ChatArea() {
     }
   }
 
+  async function uploadChatImage(file) {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload an image.");
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      alert("Image must be under 8MB.");
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload/chat-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Image upload failed");
+        return;
+      }
+
+      setAttachments((prev) => [...prev, data.attachment]);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    } catch (error) {
+      console.error("UPLOAD_SERVER_IMAGE_ERROR", error);
+      alert("Image upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  async function handleImageSelect(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!file) return;
+
+    await uploadChatImage(file);
+  }
+
+  async function handlePaste(e) {
+    if (editingMessage || showEmbedComposer || uploadingImage) return;
+
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItem = items.find((item) => item.type.startsWith("image/"));
+
+    if (!imageItem) return;
+
+    const file = imageItem.getAsFile();
+
+    if (!file) return;
+
+    e.preventDefault();
+
+    await uploadChatImage(file);
+  }
+
   const pingableMembers = members
     .filter((member) => member.userId?.username)
     .filter((member) =>
@@ -334,16 +410,22 @@ export default function ChatArea() {
   async function sendMessage(e) {
     e.preventDefault();
 
-    if (!content.trim() || sending || showEmbedComposer) {
+    if (
+      (!content.trim() && attachments.length === 0) ||
+      sending ||
+      showEmbedComposer
+    ) {
       focusInput();
       return;
     }
 
     const messageContent = content;
+    const messageAttachments = attachments;
     const replyToId = replyingTo?._id || null;
 
     setSending(true);
     setContent("");
+    setAttachments([]);
     setShowMentions(false);
     setReplyingTo(null);
     focusInput();
@@ -352,13 +434,19 @@ export default function ChatArea() {
       const res = await fetch("/api/messages/send-message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channelId, content: messageContent, replyToId }),
+        body: JSON.stringify({
+          channelId,
+          content: messageContent,
+          replyToId,
+          attachments: messageAttachments,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         setContent(messageContent);
+        setAttachments(messageAttachments);
         setReplyingTo(replyingTo);
         focusInput();
         return;
@@ -372,6 +460,7 @@ export default function ChatArea() {
     } catch (error) {
       console.error("SEND_MESSAGE_ERROR", error);
       setContent(messageContent);
+      setAttachments(messageAttachments);
       setReplyingTo(replyingTo);
     } finally {
       setSending(false);
@@ -526,13 +615,13 @@ export default function ChatArea() {
   }
 
   function MessageAttachments({ message }) {
-    const attachments = message.attachments || [];
+    const messageAttachments = message.attachments || [];
 
-    if (!attachments.length) return null;
+    if (!messageAttachments.length) return null;
 
     return (
       <div className="mt-2 flex flex-wrap gap-2">
-        {attachments.map((attachment, index) => {
+        {messageAttachments.map((attachment, index) => {
           if (attachment.type !== "image") return null;
 
           return (
@@ -766,7 +855,10 @@ export default function ChatArea() {
 
   return (
     <>
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
+      <section
+        onPaste={handlePaste}
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]"
+      >
         <div
           ref={messagesContainerRef}
           className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
@@ -842,6 +934,11 @@ export default function ChatArea() {
                 return (
                   <div
                     key={message._id}
+                      ref={(el) => {
+                      if (el) {
+                        messageRefs.current[message._id] = el;
+                      }
+                    }}
                     className={`group relative flex gap-4 rounded-lg px-2 transition ${
                       grouped ? "py-[1px]" : "py-2"
                     } ${
@@ -1070,6 +1167,35 @@ export default function ChatArea() {
             </div>
           )}
 
+          {attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {attachments.map((attachment, index) => (
+                <div
+                  key={`${attachment.url}-${index}`}
+                  className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30"
+                >
+                  <img
+                    src={attachment.url}
+                    alt={attachment.name || "Image preview"}
+                    className="h-24 w-24 object-cover"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAttachments((prev) =>
+                        prev.filter((_, itemIndex) => itemIndex !== index)
+                      )
+                    }
+                    className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-red-500"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {replyingTo && (
             <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
               <div className="min-w-0">
@@ -1105,6 +1231,14 @@ export default function ChatArea() {
           <TypingIndicator />
           {renderEmbedComposer()}
 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+
           <div
             onMouseDown={(e) => {
               if (e.target === e.currentTarget) focusInput();
@@ -1113,8 +1247,10 @@ export default function ChatArea() {
           >
             <button
               type="button"
+              disabled={uploadingImage || !!editingMessage || showEmbedComposer}
               onMouseDown={(e) => e.preventDefault()}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-300 hover:bg-violet-600 hover:text-white"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-300 hover:bg-violet-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus size={18} />
             </button>
@@ -1123,9 +1259,12 @@ export default function ChatArea() {
               ref={inputRef}
               value={content}
               onChange={handleContentChange}
+              onPaste={handlePaste}
               disabled={!!editingMessage || showEmbedComposer}
               placeholder={
-                showEmbedComposer
+                uploadingImage
+                  ? "Uploading image..."
+                  : showEmbedComposer
                   ? "Finish or close embed composer"
                   : `Message #${channel?.name || "channel"}`
               }
