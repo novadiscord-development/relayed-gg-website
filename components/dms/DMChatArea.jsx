@@ -29,7 +29,7 @@ export default function DMChatArea() {
   });
 
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !session?.user?.id) return;
 
     setMessages([]);
     setReplyingTo(null);
@@ -43,7 +43,7 @@ export default function DMChatArea() {
     loadMessages();
 
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [conversationId]);
+  }, [conversationId, session?.user?.id]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -71,26 +71,29 @@ export default function DMChatArea() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function getAuthorId(message) {
-    const author = message?.authorId;
-    return (author?._id || author || "").toString();
+  function sameId(a, b) {
+    return (a || "").toString() === (b || "").toString();
   }
 
-  function getOtherUser() {
-    return conversation?.participants?.find(
-      (user) => user._id !== session?.user?.id
+  function getUserId(user) {
+    return (user?._id || user?.id || user || "").toString();
+  }
+
+  function getAuthorId(message) {
+    return getUserId(message?.authorId);
+  }
+
+  function getOtherUserFromConversation(current = conversation) {
+    return current?.participants?.find(
+      (user) => !sameId(getUserId(user), session?.user?.id)
     );
   }
 
   function getPresenceLabel() {
-    if (presence.customStatus?.trim()) {
-      return presence.customStatus.trim();
-    }
-
+    if (presence.customStatus?.trim()) return presence.customStatus.trim();
     if (presence.status === "online") return "Online";
     if (presence.status === "idle") return "Idle";
     if (presence.status === "dnd") return "Do Not Disturb";
-
     return "Offline";
   }
 
@@ -98,13 +101,19 @@ export default function DMChatArea() {
     if (presence.status === "online") return "bg-green-500";
     if (presence.status === "idle") return "bg-yellow-400";
     if (presence.status === "dnd") return "bg-red-500";
-
     return "bg-slate-600";
+  }
+
+  function getSelectedUserPresence() {
+    const otherUser = getOtherUserFromConversation();
+
+    return sameId(getUserId(selectedUser), getUserId(otherUser))
+      ? presence
+      : { status: "offline", customStatus: "" };
   }
 
   function focusInput() {
     if (selectedUser || document.activeElement === inputRef.current) return;
-
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
@@ -115,18 +124,16 @@ export default function DMChatArea() {
 
       if (!res.ok) return;
 
-      const current = (data.conversations || []).find(
-        (item) => item._id === conversationId
+      const current = (data.conversations || []).find((item) =>
+        sameId(item._id, conversationId)
       );
 
       setConversation(current || null);
 
-      const otherUser = current?.participants?.find(
-        (user) => user._id !== session?.user?.id
-      );
+      const otherUser = getOtherUserFromConversation(current);
 
-      if (otherUser?._id) {
-        loadPresence(otherUser._id);
+      if (otherUser) {
+        await loadPresence(getUserId(otherUser));
       }
     } catch (error) {
       console.error("LOAD_DM_CONVERSATION_ERROR", error);
@@ -254,7 +261,7 @@ export default function DMChatArea() {
     );
   }
 
-  const otherUser = getOtherUser();
+  const otherUser = getOtherUserFromConversation();
 
   return (
     <>
@@ -495,7 +502,11 @@ export default function DMChatArea() {
         <UserProfilePopout
           user={selectedUser}
           member={null}
-          presence={presence}
+          presence={
+            selectedUser?._id?.toString() === otherUser?._id?.toString()
+              ? presence
+              : { status: "offline", customStatus: "" }
+          }
           onClose={() => {
             setSelectedUser(null);
             focusInput();
