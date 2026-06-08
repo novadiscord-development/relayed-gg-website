@@ -19,11 +19,26 @@ export default function MeHomePage() {
   const [incoming, setIncoming] = useState([]);
   const [outgoing, setOutgoing] = useState([]);
   const [search, setSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
+    window.addEventListener("focus", loadData);
+    return () => window.removeEventListener("focus", loadData);
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "add") return;
+
+    const timeout = setTimeout(() => {
+      searchUsers();
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [userSearch, activeTab]);
 
   async function loadData() {
     try {
@@ -50,6 +65,30 @@ export default function MeHomePage() {
     }
   }
 
+  async function searchUsers() {
+    const query = userSearch.trim();
+
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setSearchingUsers(true);
+
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+
+      if (res.ok) {
+        setSearchResults(data.users || []);
+      }
+    } catch (error) {
+      console.error("SEARCH_USERS_ERROR", error);
+    } finally {
+      setSearchingUsers(false);
+    }
+  }
+
   async function startDM(userId) {
     const res = await fetch("/api/dms/create", {
       method: "POST",
@@ -66,6 +105,26 @@ export default function MeHomePage() {
     }
   }
 
+  async function sendFriendRequest(userId) {
+    const res = await fetch("/api/friends/send-request", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (res.ok) {
+      setSearchResults((prev) =>
+        prev.map((user) =>
+          user._id === userId ? { ...user, relationship: "outgoing" } : user
+        )
+      );
+
+      loadData();
+    }
+  }
+
   async function respondRequest(requestId, action) {
     const res = await fetch("/api/friends/respond-request", {
       method: "POST",
@@ -75,7 +134,10 @@ export default function MeHomePage() {
       body: JSON.stringify({ requestId, action }),
     });
 
-    if (res.ok) loadData();
+    if (res.ok) {
+      loadData();
+      searchUsers();
+    }
   }
 
   const filteredFriends = friends.filter((friend) =>
@@ -103,7 +165,10 @@ export default function MeHomePage() {
 
             {[
               ["friends", "All"],
-              ["pending", `Pending ${incoming.length ? `(${incoming.length})` : ""}`],
+              [
+                "pending",
+                `Pending ${incoming.length ? `(${incoming.length})` : ""}`,
+              ],
               ["add", "Add Friend"],
             ].map(([id, label]) => (
               <button
@@ -123,15 +188,11 @@ export default function MeHomePage() {
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
             {activeTab === "friends" && (
               <>
-                <div className="mb-5 flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                  <Search size={16} className="text-slate-500" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search friends"
-                    className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
-                  />
-                </div>
+                <SearchBox
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search friends"
+                />
 
                 <h2 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">
                   All Friends — {filteredFriends.length}
@@ -238,26 +299,143 @@ export default function MeHomePage() {
             )}
 
             {activeTab === "add" && (
-              <div className="max-w-xl">
+              <div className="max-w-3xl">
                 <h2 className="text-2xl font-black">Add Friend</h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  User search is next. For now, friend requests can be sent from
-                  user profiles.
+                  Search users by username and send a friend request.
                 </p>
 
-                <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                  <UserPlus className="mb-3 text-violet-300" size={28} />
-                  <p className="font-bold text-white">Coming next</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Search by username and send friend requests directly here.
-                  </p>
+                <div className="mt-5">
+                  <SearchBox
+                    value={userSearch}
+                    onChange={setUserSearch}
+                    placeholder="Search username"
+                  />
                 </div>
+
+                {userSearch.trim().length < 2 ? (
+                  <EmptyState
+                    icon={UserPlus}
+                    title="Search for users"
+                    text="Type at least 2 characters to find people."
+                  />
+                ) : searchingUsers ? (
+                  <p className="text-sm text-slate-500">Searching users...</p>
+                ) : searchResults.length === 0 ? (
+                  <EmptyState
+                    icon={Search}
+                    title="No users found"
+                    text="Try another username."
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {searchResults.map((user) => (
+                      <UserRow
+                        key={user._id}
+                        user={user}
+                        subtitle={getRelationshipLabel(user.relationship)}
+                        right={
+                          <SearchAction
+                            user={user}
+                            incoming={incoming}
+                            startDM={startDM}
+                            sendFriendRequest={sendFriendRequest}
+                            respondRequest={respondRequest}
+                          />
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </section>
       </main>
     </>
+  );
+}
+
+function SearchAction({
+  user,
+  incoming,
+  startDM,
+  sendFriendRequest,
+  respondRequest,
+}) {
+  if (user.relationship === "friend") {
+    return (
+      <button
+        onClick={() => startDM(user._id)}
+        className="rounded-xl bg-white/[0.06] p-2 text-slate-300 hover:bg-violet-600 hover:text-white"
+      >
+        <MessageCircle size={18} />
+      </button>
+    );
+  }
+
+  if (user.relationship === "outgoing") {
+    return (
+      <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-slate-400">
+        Pending
+      </span>
+    );
+  }
+
+  if (user.relationship === "incoming") {
+    const request = incoming.find(
+      (item) => item.fromUserId?._id?.toString() === user._id?.toString()
+    );
+
+    return (
+      <div className="flex gap-2">
+        <button
+          onClick={() => request && respondRequest(request._id, "accept")}
+          className="rounded-xl bg-green-500/10 p-2 text-green-400 hover:bg-green-500/20"
+        >
+          <Check size={18} />
+        </button>
+
+        <button
+          onClick={() => request && respondRequest(request._id, "decline")}
+          className="rounded-xl bg-red-500/10 p-2 text-red-400 hover:bg-red-500/20"
+        >
+          <X size={18} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => sendFriendRequest(user._id)}
+      className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-500"
+    >
+      <UserPlus size={16} />
+      Add
+    </button>
+  );
+}
+
+function getRelationshipLabel(relationship) {
+  if (relationship === "friend") return "Friend";
+  if (relationship === "outgoing") return "Friend request sent";
+  if (relationship === "incoming") return "Wants to be your friend";
+  return "Relayed user";
+}
+
+function SearchBox({ value, onChange, placeholder }) {
+  return (
+    <div className="mb-5 flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+      <Search size={16} className="text-slate-500" />
+
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+      />
+    </div>
   );
 }
 
