@@ -26,72 +26,80 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
       : "Offline";
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-[0_25px_80px_rgba(0,0,0,0.65)] animate-in zoom-in-95 slide-in-from-bottom-4 duration-200">
-        <div className="h-24 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500" />
+    <div
+      onMouseDown={onClose}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm animate-in fade-in duration-200"
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-[0_25px_80px_rgba(0,0,0,0.75)] animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300"
+      >
+        <div className="relative h-24 overflow-hidden bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500">
+          <div className="absolute inset-0 animate-pulse bg-white/10" />
+        </div>
 
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-full bg-black/30 p-2 text-white/70 hover:bg-black/50 hover:text-white"
+          className="absolute right-4 top-4 rounded-full bg-black/30 p-2 text-white/70 transition hover:scale-110 hover:bg-black/50 hover:text-white active:scale-95"
         >
           <X size={17} />
         </button>
 
         <div className="px-5 pb-5">
           <div className="-mt-12 flex items-end justify-between">
-            <div className="relative">
+            <div className="relative transition duration-300 hover:scale-105">
               <Image
                 src={user.avatar || user.image || "/logo.png"}
                 alt={user.username || user.name || "User"}
                 width={96}
                 height={96}
-                className="h-24 w-24 rounded-full border-4 border-[#111827] object-cover"
+                className="h-24 w-24 rounded-full border-4 border-[#111827] object-cover shadow-xl"
               />
 
               <span
-                className={`absolute bottom-2 right-2 h-5 w-5 rounded-full border-4 border-[#111827] ${statusColor}`}
+                className={`absolute bottom-2 right-2 h-5 w-5 rounded-full border-4 border-[#111827] shadow-lg ${statusColor}`}
               />
             </div>
 
             {member?.role && (
-              <span className="mb-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold capitalize text-slate-300">
+              <span className="mb-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold capitalize text-slate-300 transition hover:bg-white/[0.1]">
                 {member.role}
               </span>
             )}
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <h2 className="truncate text-2xl font-black text-white">
               {user.username || user.name || "Unknown User"}
             </h2>
 
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 truncate text-sm text-slate-400">
               {customStatus || statusLabel}
             </p>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {user.isStaff && (
-              <span className="flex items-center gap-1 rounded-lg bg-violet-500/15 px-2 py-1 text-xs font-bold text-violet-300">
+              <span className="flex items-center gap-1 rounded-lg bg-violet-500/15 px-2 py-1 text-xs font-bold text-violet-300 transition hover:scale-105 hover:bg-violet-500/25">
                 ◆ Staff
               </span>
             )}
 
             {user.isAdmin && (
-              <span className="flex items-center gap-1 rounded-lg bg-red-500/15 px-2 py-1 text-xs font-bold text-red-300">
+              <span className="flex items-center gap-1 rounded-lg bg-red-500/15 px-2 py-1 text-xs font-bold text-red-300 transition hover:scale-105 hover:bg-red-500/25">
                 <Shield size={13} />
                 Admin
               </span>
             )}
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <button className="flex items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-500">
+          <div className="mt-5 grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-bottom-3 duration-500">
+            <button className="flex items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-violet-500 hover:shadow-[0_10px_30px_rgba(124,58,237,0.35)] active:translate-y-0">
               <MessageCircle size={16} />
               Message
             </button>
 
-            <button className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 hover:bg-white/[0.08] hover:text-white">
+            <button className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:-translate-y-0.5 hover:bg-white/[0.08] hover:text-white active:translate-y-0">
               <AtSign size={16} />
               Mention
             </button>
