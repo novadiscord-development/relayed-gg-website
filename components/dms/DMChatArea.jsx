@@ -14,6 +14,8 @@ export default function DMChatArea() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const stopTypingTimeoutRef = useRef(null);
 
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -22,6 +24,7 @@ export default function DMChatArea() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [typingUsers, setTypingUsers] = useState({});
 
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState("");
@@ -39,10 +42,8 @@ export default function DMChatArea() {
     setSelectedUser(null);
     setEditingMessage(null);
     setEditContent("");
-    setPresence({
-      status: "offline",
-      customStatus: "",
-    });
+    setTypingUsers({});
+    setPresence({ status: "offline", customStatus: "" });
 
     loadConversation();
     loadMessages();
@@ -51,16 +52,14 @@ export default function DMChatArea() {
   }, [conversationId, session?.user?.id]);
 
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !session?.user?.id) return;
 
     const pusherClient = getPusherClient();
     const pusherChannel = pusherClient.subscribe(`dm-${conversationId}`);
 
     function handleNewMessage(message) {
       setMessages((prev) =>
-        prev.some((item) => item._id === message._id)
-          ? prev
-          : [...prev, message]
+        prev.some((item) => item._id === message._id) ? prev : [...prev, message]
       );
     }
 
@@ -73,45 +72,67 @@ export default function DMChatArea() {
     }
 
     function handleDeletedMessage({ messageId }) {
-      setMessages((prev) =>
-        prev.filter((message) => message._id !== messageId)
-      );
-
-      if (replyingTo?._id === messageId) {
-        setReplyingTo(null);
-      }
-
+      setMessages((prev) => prev.filter((message) => message._id !== messageId));
+      if (replyingTo?._id === messageId) setReplyingTo(null);
       if (editingMessage?._id === messageId) {
         setEditingMessage(null);
         setEditContent("");
       }
     }
 
+    function handleTypingStart(user) {
+      if (sameId(user.userId, session.user.id)) return;
+
+      setTypingUsers((prev) => ({
+        ...prev,
+        [user.userId]: user.username || "Someone",
+      }));
+
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        setTypingUsers({});
+      }, 3500);
+    }
+
+    function handleTypingStop(user) {
+      setTypingUsers((prev) => {
+        const next = { ...prev };
+        delete next[user.userId];
+        return next;
+      });
+    }
+
     pusherChannel.bind("dm:message:new", handleNewMessage);
     pusherChannel.bind("dm:message:update", handleUpdatedMessage);
     pusherChannel.bind("dm:message:delete", handleDeletedMessage);
+    pusherChannel.bind("dm:typing:start", handleTypingStart);
+    pusherChannel.bind("dm:typing:stop", handleTypingStop);
 
     return () => {
       pusherChannel.unbind("dm:message:new", handleNewMessage);
       pusherChannel.unbind("dm:message:update", handleUpdatedMessage);
       pusherChannel.unbind("dm:message:delete", handleDeletedMessage);
+      pusherChannel.unbind("dm:typing:start", handleTypingStart);
+      pusherChannel.unbind("dm:typing:stop", handleTypingStop);
       pusherClient.unsubscribe(`dm-${conversationId}`);
+      clearTimeout(typingTimeoutRef.current);
+      clearTimeout(stopTypingTimeoutRef.current);
     };
-  }, [conversationId, replyingTo?._id, editingMessage?._id]);
+  }, [conversationId, session?.user?.id, replyingTo?._id, editingMessage?._id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-  if (!conversationId) return;
+    if (!conversationId) return;
 
-  fetch("/api/dms/mark-read", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ conversationId }),
-  }).catch(() => {});
-}, [conversationId]);
+    fetch("/api/dms/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId }),
+    }).catch(() => {});
+  }, [conversationId]);
 
   function sameId(a, b) {
     return (a || "").toString() === (b || "").toString();
@@ -146,24 +167,50 @@ export default function DMChatArea() {
     return "bg-slate-600";
   }
 
+  function getTypingText() {
+    const names = Object.values(typingUsers);
+    if (!names.length) return "";
+    if (names.length === 1) return `${names[0]} is typing...`;
+    if (names.length === 2) return `${names[0]} and ${names[1]} are typing...`;
+    return "Several people are typing...";
+  }
+
   function getSelectedUserPresence() {
     const otherUser = getOtherUserFromConversation();
-
     return sameId(getUserId(selectedUser), getUserId(otherUser))
       ? presence
       : { status: "offline", customStatus: "" };
   }
 
   function focusInput() {
-    if (
-      selectedUser ||
-      editingMessage ||
-      document.activeElement === inputRef.current
-    ) {
+    if (selectedUser || editingMessage || document.activeElement === inputRef.current) return;
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  async function emitTyping(typing) {
+    if (!conversationId) return;
+
+    fetch("/api/dms/typing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId, typing }),
+    }).catch(() => {});
+  }
+
+  function handleContentChange(e) {
+    setContent(e.target.value);
+
+    if (!e.target.value.trim() || editingMessage) {
+      emitTyping(false);
       return;
     }
 
-    requestAnimationFrame(() => inputRef.current?.focus());
+    emitTyping(true);
+
+    clearTimeout(stopTypingTimeoutRef.current);
+    stopTypingTimeoutRef.current = setTimeout(() => {
+      emitTyping(false);
+    }, 1600);
   }
 
   async function loadConversation() {
@@ -180,10 +227,7 @@ export default function DMChatArea() {
       setConversation(current || null);
 
       const otherUser = getOtherUserFromConversation(current);
-
-      if (otherUser) {
-        await loadPresence(getUserId(otherUser));
-      }
+      if (otherUser) await loadPresence(getUserId(otherUser));
     } catch (error) {
       console.error("LOAD_DM_CONVERSATION_ERROR", error);
     }
@@ -214,9 +258,7 @@ export default function DMChatArea() {
       );
       const data = await res.json();
 
-      if (res.ok) {
-        setMessages(data.messages || []);
-      }
+      if (res.ok) setMessages(data.messages || []);
     } catch (error) {
       console.error("LOAD_DM_MESSAGES_ERROR", error);
     } finally {
@@ -235,6 +277,7 @@ export default function DMChatArea() {
     setEditingMessage(message);
     setEditContent(message.content || "");
     setReplyingTo(null);
+    emitTyping(false);
   }
 
   function cancelEdit() {
@@ -256,7 +299,6 @@ export default function DMChatArea() {
     });
 
     const data = await res.json();
-
     if (!res.ok) return;
 
     setMessages((prev) =>
@@ -286,9 +328,7 @@ export default function DMChatArea() {
 
     setMessages((prev) => prev.filter((item) => item._id !== message._id));
 
-    if (replyingTo?._id === message._id) {
-      setReplyingTo(null);
-    }
+    if (replyingTo?._id === message._id) setReplyingTo(null);
 
     if (editingMessage?._id === message._id) {
       setEditingMessage(null);
@@ -312,17 +352,14 @@ export default function DMChatArea() {
     setSending(true);
     setContent("");
     setReplyingTo(null);
+    emitTyping(false);
     focusInput();
 
     try {
       const res = await fetch("/api/dms/send-message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          conversationId,
-          content: messageContent,
-          replyToId,
-        }),
+        body: JSON.stringify({ conversationId, content: messageContent, replyToId }),
       });
 
       const data = await res.json();
@@ -380,6 +417,7 @@ export default function DMChatArea() {
   }
 
   const otherUser = getOtherUserFromConversation();
+  const typingText = getTypingText();
 
   return (
     <>
@@ -441,9 +479,7 @@ export default function DMChatArea() {
           {loading ? (
             <p className="text-sm text-slate-500">Loading messages...</p>
           ) : messages.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No messages yet. Say hello.
-            </p>
+            <p className="text-sm text-slate-500">No messages yet. Say hello.</p>
           ) : (
             <div className="space-y-0">
               {messages.map((message, index) => {
@@ -463,9 +499,7 @@ export default function DMChatArea() {
                     key={message._id}
                     className={`group relative flex gap-4 rounded-lg px-2 transition ${
                       grouped ? "py-[1px]" : "py-2"
-                    } ${
-                      isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"
-                    }`}
+                    } ${isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"}`}
                   >
                     {!isEditing && (
                       <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
@@ -523,9 +557,7 @@ export default function DMChatArea() {
                     )}
 
                     <div className="min-w-0 flex-1">
-                      {message.replyToId && (
-                        <ReplyPreview reply={message.replyToId} />
-                      )}
+                      {message.replyToId && <ReplyPreview reply={message.replyToId} />}
 
                       {!grouped && (
                         <div className="flex flex-wrap items-center gap-2">
@@ -554,9 +586,7 @@ export default function DMChatArea() {
                           </span>
 
                           {message.edited && !isEditing && (
-                            <span className="text-xs text-slate-500">
-                              edited
-                            </span>
+                            <span className="text-xs text-slate-500">edited</span>
                           )}
                         </div>
                       )}
@@ -626,6 +656,12 @@ export default function DMChatArea() {
           onMouseDown={(e) => e.stopPropagation()}
           className="relative shrink-0 border-t border-white/10 bg-[#080b18] p-4"
         >
+          {typingText && !editingMessage && (
+            <div className="mb-2 px-2 text-xs font-semibold text-slate-500 animate-in fade-in slide-in-from-bottom-1 duration-150">
+              {typingText}
+            </div>
+          )}
+
           {replyingTo && (
             <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
               <div className="min-w-0">
@@ -676,7 +712,7 @@ export default function DMChatArea() {
             <input
               ref={inputRef}
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={handleContentChange}
               disabled={!!editingMessage}
               placeholder={
                 editingMessage
@@ -687,15 +723,8 @@ export default function DMChatArea() {
             />
 
             <div className="flex shrink-0 items-center gap-3 text-slate-400">
-              <Gift
-                size={19}
-                className="cursor-pointer transition hover:text-white"
-              />
-
-              <Smile
-                size={19}
-                className="cursor-pointer transition hover:text-white"
-              />
+              <Gift size={19} className="cursor-pointer transition hover:text-white" />
+              <Smile size={19} className="cursor-pointer transition hover:text-white" />
             </div>
           </div>
         </form>
