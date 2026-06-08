@@ -103,6 +103,16 @@ export default function DMChatArea() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+  if (!conversationId) return;
+
+  fetch("/api/dms/mark-read", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ conversationId }),
+  }).catch(() => {});
+}, [conversationId]);
+
   function sameId(a, b) {
     return (a || "").toString() === (b || "").toString();
   }

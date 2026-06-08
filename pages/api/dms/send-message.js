@@ -4,6 +4,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Conversation from "@/models/Conversation";
 import DMMessage from "@/models/DMMessage";
+import DMNotification from "@/models/DMNotification";
 import { pusherServer } from "@/lib/pusher";
 
 export default async function handler(req, res) {
@@ -75,6 +76,32 @@ export default async function handler(req, res) {
       },
     });
 
+    const recipientIds = conversation.participants.filter(
+      (participant) => participant.toString() !== session.user.id.toString()
+    );
+
+    await Promise.all(
+      recipientIds.map((recipientId) =>
+        DMNotification.findOneAndUpdate(
+          {
+            userId: recipientId,
+            conversationId,
+          },
+          {
+            $set: {
+              unread: true,
+              lastMessageAt: message.createdAt,
+            },
+          },
+          {
+            upsert: true,
+            returnDocument: "after",
+            setDefaultsOnInsert: true,
+          }
+        )
+      )
+    );
+
     message = await DMMessage.findById(message._id)
       .populate("authorId", "username avatar image isStaff isAdmin badges")
       .populate({
@@ -92,23 +119,17 @@ export default async function handler(req, res) {
       message
     );
 
-    await pusherServer.trigger(
-      `user-${conversation.participants[0]}`,
-      "dm:conversation:update",
-      {
-        conversationId,
-        message,
-      }
-    );
-
-    await pusherServer.trigger(
-      `user-${conversation.participants[1]}`,
-      "dm:conversation:update",
-      {
-        conversationId,
-        message,
-      }
-    );
+    for (const participant of conversation.participants) {
+      await pusherServer.trigger(
+        `user-${participant}`,
+        "dm:conversation:update",
+        {
+          conversationId,
+          message,
+          unread: participant.toString() !== session.user.id.toString(),
+        }
+      );
+    }
 
     return res.status(201).json({ message });
   } catch (error) {

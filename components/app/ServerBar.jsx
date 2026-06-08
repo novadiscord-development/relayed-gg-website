@@ -4,33 +4,73 @@ import Image from "next/image";
 import { Plus, Compass } from "lucide-react";
 import CreateServerModal from "@/components/modals/CreateServerModal";
 import { useNotifications } from "@/context/NotificationContext";
+import { getPusherClient } from "@/lib/pusher-client";
+import { useSession } from "next-auth/react";
 
 export default function ServerBar() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { getServerNotification } = useNotifications();
 
   const [servers, setServers] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [dmUnread, setDmUnread] = useState(false);
 
   const activeServerId = router.query.serverId;
+  const isHomeActive = !activeServerId;
 
   useEffect(() => {
     loadServers();
+    loadDMUnread();
   }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const pusherClient = getPusherClient();
+    const channelName = `user-${session.user.id}`;
+    const userChannel = pusherClient.subscribe(channelName);
+
+    function handleDMUpdate({ unread }) {
+      if (unread && !router.pathname.startsWith("/app/me")) {
+        setDmUnread(true);
+      }
+    }
+
+    userChannel.bind("dm:conversation:update", handleDMUpdate);
+
+    return () => {
+      userChannel.unbind("dm:conversation:update", handleDMUpdate);
+      pusherClient.unsubscribe(channelName);
+    };
+  }, [session?.user?.id, router.pathname]);
+
+  useEffect(() => {
+    if (router.pathname.startsWith("/app/me")) {
+      setDmUnread(false);
+    } else {
+      loadDMUnread();
+    }
+  }, [router.pathname, router.query.conversationId]);
 
   useEffect(() => {
     function refreshServers() {
       loadServers();
     }
 
+    function refreshAll() {
+      loadServers();
+      loadDMUnread();
+    }
+
     window.addEventListener("server:updated", refreshServers);
     window.addEventListener("server:deleted", refreshServers);
-    window.addEventListener("focus", refreshServers);
+    window.addEventListener("focus", refreshAll);
 
     return () => {
       window.removeEventListener("server:updated", refreshServers);
       window.removeEventListener("server:deleted", refreshServers);
-      window.removeEventListener("focus", refreshServers);
+      window.removeEventListener("focus", refreshAll);
     };
   }, []);
 
@@ -42,6 +82,26 @@ export default function ServerBar() {
       setServers(data.servers || []);
     } catch (error) {
       console.error("LOAD_SERVERS_ERROR", error);
+    }
+  }
+
+  async function loadDMUnread() {
+    try {
+      const res = await fetch("/api/dms/get-conversations", {
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        const hasUnread = (data.conversations || []).some(
+          (conversation) => conversation.notification?.unread
+        );
+
+        setDmUnread(hasUnread);
+      }
+    } catch (error) {
+      console.error("LOAD_DM_UNREAD_ERROR", error);
     }
   }
 
@@ -64,15 +124,15 @@ export default function ServerBar() {
     <>
       <aside className="flex w-[76px] flex-col items-center gap-4 border-r border-white/10 bg-[#070a15] py-4">
         <button
-          onClick={() => router.push("/app")}
+          onClick={() => router.push("/app/me")}
           title="Home"
           className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border transition hover:rounded-xl ${
-            !activeServerId
+            isHomeActive
               ? "border-violet-400 bg-violet-600/30 shadow-[0_0_25px_rgba(124,58,237,0.5)]"
               : "border-white/10 bg-white/[0.04] hover:border-violet-400/50 hover:bg-violet-600/20"
           }`}
         >
-          {!activeServerId && (
+          {isHomeActive && (
             <span className="absolute -left-3 h-8 w-1 rounded-r-full bg-violet-400" />
           )}
 
@@ -83,6 +143,10 @@ export default function ServerBar() {
             height={36}
             className="rounded-full"
           />
+
+          {dmUnread && !router.pathname.startsWith("/app/me") && (
+            <span className="absolute -right-1 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-[#070a15] bg-white" />
+          )}
         </button>
 
         <div className="h-px w-10 bg-white/10" />

@@ -34,23 +34,30 @@ export default function DMChannelSidebar() {
     const channelName = `user-${session.user.id}`;
     const userChannel = pusherClient.subscribe(channelName);
 
-    function handleConversationUpdate({ conversationId, message }) {
+    function handleConversationUpdate({ conversationId, message, unread }) {
       setConversations((prev) => {
-        const existing = prev.find((item) => item._id === conversationId);
+        const existing = prev.find((item) => sameId(item._id, conversationId));
 
         if (!existing) {
           loadConversations();
           return prev;
         }
 
+        const isActive = sameId(activeConversationId, conversationId);
+
         const updated = {
           ...existing,
           lastMessageId: message,
           lastMessageAt: message.createdAt,
           updatedAt: message.createdAt,
+          notification: {
+            ...(existing.notification || {}),
+            unread: isActive ? false : Boolean(unread),
+            lastMessageAt: message.createdAt,
+          },
         };
 
-        return [updated, ...prev.filter((item) => item._id !== conversationId)];
+        return [updated, ...prev.filter((item) => !sameId(item._id, conversationId))];
       });
     }
 
@@ -61,11 +68,16 @@ export default function DMChannelSidebar() {
       userChannel.unbind("dm:conversation:update", handleConversationUpdate);
       pusherClient.unsubscribe(channelName);
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, activeConversationId]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
+
     loadConversations(false);
+
+    if (activeConversationId) {
+      markConversationRead(activeConversationId);
+    }
   }, [activeConversationId, session?.user?.id]);
 
   async function loadConversations(showLoading = true) {
@@ -86,6 +98,31 @@ export default function DMChannelSidebar() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function markConversationRead(conversationId) {
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        sameId(conversation._id, conversationId)
+          ? {
+              ...conversation,
+              notification: {
+                ...(conversation.notification || {}),
+                unread: false,
+                mentions: 0,
+              },
+            }
+          : conversation
+      )
+    );
+
+    fetch("/api/dms/mark-read", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ conversationId }),
+    }).catch(() => {});
   }
 
   function sameId(a, b) {
@@ -203,7 +240,8 @@ export default function DMChannelSidebar() {
           ) : (
             filteredConversations.map((conversation) => {
               const otherUser = getOtherUser(conversation);
-              const isActive = activeConversationId === conversation._id;
+              const isActive = sameId(activeConversationId, conversation._id);
+              const unread = conversation.notification?.unread && !isActive;
 
               return (
                 <button
@@ -213,6 +251,8 @@ export default function DMChannelSidebar() {
                   className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
                     isActive
                       ? "bg-white/[0.08] text-white"
+                      : unread
+                      ? "text-white hover:bg-white/[0.06]"
                       : "text-slate-400 hover:bg-white/[0.05] hover:text-white"
                   }`}
                 >
@@ -226,21 +266,33 @@ export default function DMChannelSidebar() {
                     />
 
                     <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#0b0f1d] bg-slate-600" />
+
+                    {unread && (
+                      <span className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-white" />
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <p
                       className={`truncate text-sm font-bold ${
-                        isActive ? "text-white" : "text-slate-300"
+                        isActive || unread ? "text-white" : "text-slate-300"
                       }`}
                     >
                       {otherUser?.username || otherUser?.name || "Unknown User"}
                     </p>
 
-                    <p className="truncate text-xs text-slate-500">
+                    <p
+                      className={`truncate text-xs ${
+                        unread ? "font-semibold text-slate-300" : "text-slate-500"
+                      }`}
+                    >
                       {getLastMessageText(conversation)}
                     </p>
                   </div>
+
+                  {unread && (
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-violet-400 shadow-[0_0_16px_rgba(167,139,250,0.7)]" />
+                  )}
                 </button>
               );
             })

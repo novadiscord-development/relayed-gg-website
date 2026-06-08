@@ -3,7 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
 import Conversation from "@/models/Conversation";
-
+import DMNotification from "@/models/DMNotification";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -31,9 +31,35 @@ export default async function handler(req, res) {
           select: "username avatar image",
         },
       })
-      .sort({ lastMessageAt: -1, updatedAt: -1 });
+      .sort({ lastMessageAt: -1, updatedAt: -1 })
+      .lean();
 
-    return res.status(200).json({ conversations });
+    const notifications = await DMNotification.find({
+      userId: session.user.id,
+    }).lean();
+
+    const notificationMap = {};
+
+    notifications.forEach((notification) => {
+      notificationMap[notification.conversationId.toString()] = {
+        unread: Boolean(notification.unread),
+        mentions: notification.mentions || 0,
+        lastMessageAt: notification.lastMessageAt || null,
+      };
+    });
+
+    const conversationsWithNotifications = conversations.map((conversation) => ({
+      ...conversation,
+      notification: notificationMap[conversation._id.toString()] || {
+        unread: false,
+        mentions: 0,
+        lastMessageAt: null,
+      },
+    }));
+
+    return res.status(200).json({
+      conversations: conversationsWithNotifications,
+    });
   } catch (error) {
     console.error("GET_DM_CONVERSATIONS_ERROR", error);
     return res.status(500).json({ message: "Internal Server Error" });
