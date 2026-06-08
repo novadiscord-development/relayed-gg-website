@@ -42,6 +42,7 @@ export default function ChatArea() {
   const [members, setMembers] = useState([]);
   const [currentMember, setCurrentMember] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -76,6 +77,7 @@ export default function ChatArea() {
     setHasMoreMessages(true);
     setOldestMessageAt(null);
     setSelectedMember(null);
+    setPreviewImage(null);
 
     loadChannel();
     loadMessages(true);
@@ -523,6 +525,35 @@ export default function ChatArea() {
     );
   }
 
+  function MessageAttachments({ message }) {
+    const attachments = message.attachments || [];
+
+    if (!attachments.length) return null;
+
+    return (
+      <div className="mt-2 flex flex-wrap gap-2">
+        {attachments.map((attachment, index) => {
+          if (attachment.type !== "image") return null;
+
+          return (
+            <button
+              key={`${attachment.url}-${index}`}
+              type="button"
+              onClick={() => setPreviewImage(attachment.url)}
+              className="overflow-hidden rounded-xl border border-white/10 bg-black/20 transition hover:opacity-90"
+            >
+              <img
+                src={attachment.url}
+                alt={attachment.name || "Uploaded image"}
+                className="max-h-[320px] max-w-[420px] object-contain"
+              />
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   function EmbedCard({ embed }) {
     if (!embed) return null;
 
@@ -571,11 +602,17 @@ export default function ChatArea() {
           </div>
 
           {embed.image && (
-            <img
-              src={embed.image}
-              alt=""
-              className="mt-4 max-h-72 w-full rounded-xl object-cover"
-            />
+            <button
+              type="button"
+              onClick={() => setPreviewImage(embed.image)}
+              className="mt-4 overflow-hidden rounded-xl"
+            >
+              <img
+                src={embed.image}
+                alt=""
+                className="max-h-72 w-full object-cover transition hover:opacity-90"
+              />
+            </button>
           )}
 
           {embed.footer && (
@@ -960,6 +997,8 @@ export default function ChatArea() {
                             </p>
                           )}
 
+                          <MessageAttachments message={message} />
+
                           {message.embeds?.length > 0 && (
                             <div className="space-y-2">
                               {message.embeds.map((embed, embedIndex) => (
@@ -1133,6 +1172,25 @@ export default function ChatArea() {
             focusInput();
           }}
         />
+      )}
+
+      {previewImage && (
+        <div
+          onMouseDown={() => setPreviewImage(null)}
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm"
+        >
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            className="max-h-full max-w-full"
+          >
+            <img
+              src={previewImage}
+              alt="Image preview"
+              className="max-h-[90vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
+            />
+          </button>
+        </div>
       )}
     </>
   );
