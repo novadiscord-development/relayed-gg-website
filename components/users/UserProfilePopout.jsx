@@ -15,6 +15,7 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
 
   const [friendLoading, setFriendLoading] = useState(false);
   const [friendMessage, setFriendMessage] = useState("");
+  const [friendStatus, setFriendStatus] = useState("none");
 
   if (!user) return null;
 
@@ -39,6 +40,17 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
       : status === "dnd"
       ? "Do Not Disturb"
       : "Offline";
+
+  async function loadFriendStatus() {
+    if (!userId) return;
+
+    const res = await fetch(`/api/friends/status?userId=${userId}`);
+    const data = await res.json();
+
+    if (res.ok) {
+      setFriendStatus(data.status || "none");
+    }
+  }
 
   async function startDM() {
     if (!userId) return;

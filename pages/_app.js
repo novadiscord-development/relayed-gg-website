@@ -11,7 +11,6 @@ export default function App({ Component, pageProps }) {
   <NotificationProvider>
     <NotificationListener />
     <PresenceProvider />
-    <AnnouncementBar />
     <Component {...pageProps} />
   </NotificationProvider>
 </SessionProvider>
