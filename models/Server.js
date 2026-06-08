@@ -12,7 +12,6 @@ const ServerSchema = new mongoose.Schema(
 
     icon: {
       type: String,
-      default: "/logo.png",
     },
 
     ownerId: {
