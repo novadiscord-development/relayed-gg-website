@@ -75,6 +75,8 @@ export default async function handler(req, res) {
       (reaction) => reaction.userIds.length > 0
     );
 
+    message.markModified("reactions");
+
     await message.save();
 
     const updatedMessage = await Message.findById(message._id)

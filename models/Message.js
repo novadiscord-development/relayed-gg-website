@@ -83,6 +83,7 @@ const MessageSchema = new mongoose.Schema(
     },
     
     attachments: [AttachmentSchema],
+    reactions: [ReactionSchema],
 
     embeds: [
   {
