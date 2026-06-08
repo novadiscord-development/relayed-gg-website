@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import ServerBar from "@/components/app/ServerBar";
-import { MessageCircle, Shield, UserPlus, CalendarDays } from "lucide-react";
+import { MessageCircle, Shield, UserPlus, CalendarDays, Check } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function UserProfilePage() {
@@ -12,6 +12,8 @@ export default function UserProfilePage() {
   const [profile, setProfile] = useState(null);
   const [presence, setPresence] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [friendLoading, setFriendLoading] = useState(false);
+  const [friendMessage, setFriendMessage] = useState("");
 
   useEffect(() => {
     if (!userId) return;
@@ -33,6 +35,55 @@ export default function UserProfilePage() {
       console.error("LOAD_USER_PROFILE_ERROR", error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function startDM() {
+    if (!userId) return;
+
+    const res = await fetch("/api/dms/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      router.push(`/app/me/${data.conversation._id}`);
+    }
+  }
+
+  async function sendFriendRequest() {
+    if (!userId || friendLoading) return;
+
+    try {
+      setFriendLoading(true);
+      setFriendMessage("");
+
+      const res = await fetch("/api/friends/send-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not send friend request");
+        return;
+      }
+
+      setFriendMessage("Friend request sent");
+    } catch (error) {
+      console.error("SEND_PROFILE_FRIEND_REQUEST_ERROR", error);
+      setFriendMessage("Could not send friend request");
+    } finally {
+      setFriendLoading(false);
     }
   }
 
@@ -104,18 +155,40 @@ export default function UserProfilePage() {
                       <p className="mt-2 text-slate-400">
                         {customStatus || statusLabel}
                       </p>
+
+                      {friendMessage && (
+                        <p className="mt-2 text-sm text-violet-300">
+                          {friendMessage}
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-3 pb-2">
-                    <button className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white hover:bg-violet-500">
+                    <button
+                      onClick={startDM}
+                      className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-500"
+                    >
                       <MessageCircle size={17} />
                       Message
                     </button>
 
-                    <button className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-300 hover:bg-white/[0.08] hover:text-white">
-                      <UserPlus size={17} />
-                      Add Friend
+                    <button
+                      onClick={sendFriendRequest}
+                      disabled={friendLoading || friendMessage === "Friend request sent"}
+                      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {friendMessage === "Friend request sent" ? (
+                        <>
+                          <Check size={17} />
+                          Sent
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus size={17} />
+                          {friendLoading ? "Sending..." : "Add Friend"}
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -128,8 +201,7 @@ export default function UserProfilePage() {
                       </h2>
 
                       <p className="mt-3 text-sm leading-6 text-slate-300">
-                        {profile.bio ||
-                          "This user has not added a bio yet."}
+                        {profile.bio || "This user has not added a bio yet."}
                       </p>
                     </div>
 
