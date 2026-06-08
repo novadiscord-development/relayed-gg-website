@@ -1,15 +1,20 @@
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import {
   MessageCircle,
-  AtSign,
+  UserPlus,
   Shield,
   X,
   ExternalLink,
+  Check,
 } from "lucide-react";
 
 export default function UserProfilePopout({ user, member, presence, onClose }) {
   const router = useRouter();
+
+  const [friendLoading, setFriendLoading] = useState(false);
+  const [friendMessage, setFriendMessage] = useState("");
 
   if (!user) return null;
 
@@ -55,6 +60,37 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
       router.push(`/app/me/${data.conversation._id}`);
     } catch (error) {
       console.error("START_DM_ERROR", error);
+    }
+  }
+
+  async function sendFriendRequest() {
+    if (!userId || friendLoading) return;
+
+    try {
+      setFriendLoading(true);
+      setFriendMessage("");
+
+      const res = await fetch("/api/friends/send-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not send friend request");
+        return;
+      }
+
+      setFriendMessage("Friend request sent");
+    } catch (error) {
+      console.error("SEND_POPOUT_FRIEND_REQUEST_ERROR", error);
+      setFriendMessage("Could not send friend request");
+    } finally {
+      setFriendLoading(false);
     }
   }
 
@@ -126,6 +162,12 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
             <p className="mt-1 truncate text-sm text-slate-400">
               {customStatus || statusLabel}
             </p>
+
+            {friendMessage && (
+              <p className="mt-2 text-xs font-semibold text-violet-300">
+                {friendMessage}
+              </p>
+            )}
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -153,9 +195,25 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
               Message
             </button>
 
-            <button className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:-translate-y-0.5 hover:bg-white/[0.08] hover:text-white active:translate-y-0">
-              <AtSign size={16} />
-              Mention
+            <button
+              type="button"
+              onClick={sendFriendRequest}
+              disabled={
+                friendLoading || friendMessage === "Friend request sent"
+              }
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:-translate-y-0.5 hover:bg-white/[0.08] hover:text-white active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {friendMessage === "Friend request sent" ? (
+                <>
+                  <Check size={16} />
+                  Sent
+                </>
+              ) : (
+                <>
+                  <UserPlus size={16} />
+                  {friendLoading ? "Sending..." : "Add"}
+                </>
+              )}
             </button>
           </div>
 

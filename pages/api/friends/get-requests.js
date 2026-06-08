@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
 
@@ -12,25 +13,29 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
     await connectDB();
 
+    const currentUserId = new mongoose.Types.ObjectId(session.user.id);
+
     const incoming = await FriendRequest.find({
-      toUserId: session.user.id,
+      toUserId: currentUserId,
       status: "pending",
     })
       .populate("fromUserId", "username avatar image isStaff isAdmin badges")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     const outgoing = await FriendRequest.find({
-      fromUserId: session.user.id,
+      fromUserId: currentUserId,
       status: "pending",
     })
       .populate("toUserId", "username avatar image isStaff isAdmin badges")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     return res.status(200).json({
       incoming,
