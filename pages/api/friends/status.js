@@ -29,7 +29,10 @@ export default async function handler(req, res) {
     const targetUserId = userId.toString();
 
     if (currentUserId === targetUserId) {
-      return res.status(200).json({ status: "self" });
+      return res.status(200).json({
+        status: "self",
+        requestId: null,
+      });
     }
 
     const friendship = await Friend.findOne({
@@ -40,7 +43,10 @@ export default async function handler(req, res) {
     });
 
     if (friendship) {
-      return res.status(200).json({ status: "friends" });
+      return res.status(200).json({
+        status: "friends",
+        requestId: null,
+      });
     }
 
     const outgoing = await FriendRequest.findOne({
@@ -50,7 +56,10 @@ export default async function handler(req, res) {
     });
 
     if (outgoing) {
-      return res.status(200).json({ status: "outgoing" });
+      return res.status(200).json({
+        status: "outgoing",
+        requestId: outgoing._id,
+      });
     }
 
     const incoming = await FriendRequest.findOne({
@@ -60,10 +69,16 @@ export default async function handler(req, res) {
     });
 
     if (incoming) {
-      return res.status(200).json({ status: "incoming" });
+      return res.status(200).json({
+        status: "incoming",
+        requestId: incoming._id,
+      });
     }
 
-    return res.status(200).json({ status: "none" });
+    return res.status(200).json({
+      status: "none",
+      requestId: null,
+    });
   } catch (error) {
     console.error("FRIEND_STATUS_ERROR", error);
     return res.status(500).json({ message: "Internal Server Error" });

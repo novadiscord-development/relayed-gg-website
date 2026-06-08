@@ -8,7 +8,6 @@ import {
   UserPlus,
   CalendarDays,
   Check,
-  Clock,
   UserCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -23,6 +22,7 @@ export default function UserProfilePage() {
   const [friendLoading, setFriendLoading] = useState(false);
   const [friendMessage, setFriendMessage] = useState("");
   const [friendStatus, setFriendStatus] = useState("none");
+  const [friendRequestId, setFriendRequestId] = useState(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -56,6 +56,7 @@ export default function UserProfilePage() {
 
       if (res.ok) {
         setFriendStatus(data.status || "none");
+        setFriendRequestId(data.requestId || null);
       }
     } catch (error) {
       console.error("LOAD_PROFILE_FRIEND_STATUS_ERROR", error);
@@ -68,9 +69,7 @@ export default function UserProfilePage() {
     try {
       const res = await fetch("/api/dms/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
       });
 
@@ -93,9 +92,7 @@ export default function UserProfilePage() {
 
       const res = await fetch("/api/friends/send-request", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
       });
 
@@ -108,10 +105,42 @@ export default function UserProfilePage() {
       }
 
       setFriendStatus("outgoing");
+      setFriendRequestId(data.requestId || null);
       setFriendMessage("Friend request sent");
     } catch (error) {
       console.error("SEND_PROFILE_FRIEND_REQUEST_ERROR", error);
       setFriendMessage("Could not send friend request");
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
+  async function acceptFriendRequest() {
+    if (!friendRequestId || friendLoading) return;
+
+    try {
+      setFriendLoading(true);
+      setFriendMessage("");
+
+      const res = await fetch("/api/friends/respond-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: friendRequestId, action: "accept" }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not accept request");
+        return;
+      }
+
+      setFriendStatus("friends");
+      setFriendRequestId(null);
+      setFriendMessage("Friend request accepted");
+    } catch (error) {
+      console.error("ACCEPT_PROFILE_FRIEND_REQUEST_ERROR", error);
+      setFriendMessage("Could not accept request");
     } finally {
       setFriendLoading(false);
     }
@@ -128,7 +157,7 @@ export default function UserProfilePage() {
           className="flex items-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 px-5 py-3 text-sm font-bold text-green-300"
         >
           <UserCheck size={17} />
-          Friends
+          FRIENDS
         </button>
       );
     }
@@ -141,7 +170,7 @@ export default function UserProfilePage() {
           className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-400"
         >
           <Check size={17} />
-          Sent
+          REQUEST SENT
         </button>
       );
     }
@@ -150,11 +179,12 @@ export default function UserProfilePage() {
       return (
         <button
           type="button"
-          disabled
-          className="flex items-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-5 py-3 text-sm font-bold text-yellow-300"
+          onClick={acceptFriendRequest}
+          disabled={friendLoading}
+          className="flex items-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 px-5 py-3 text-sm font-bold text-green-300 transition hover:bg-green-500/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Clock size={17} />
-          Requested You
+          <UserCheck size={17} />
+          {friendLoading ? "ACCEPTING..." : "ACCEPT REQUEST"}
         </button>
       );
     }
@@ -167,7 +197,7 @@ export default function UserProfilePage() {
         className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
       >
         <UserPlus size={17} />
-        {friendLoading ? "Sending..." : "Add Friend"}
+        {friendLoading ? "SENDING..." : "ADD FRIEND"}
       </button>
     );
   }
@@ -307,9 +337,7 @@ export default function UserProfilePage() {
                         )}
 
                         {!profile.isStaff && !profile.isAdmin && (
-                          <p className="text-sm text-slate-500">
-                            No badges yet.
-                          </p>
+                          <p className="text-sm text-slate-500">No badges yet.</p>
                         )}
                       </div>
                     </div>
