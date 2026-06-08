@@ -62,19 +62,21 @@ export default function ChatHeader() {
     setChannel(currentChannel || null);
   }
 
-  function jumpToMessage(message) {
-    window.dispatchEvent(
-      new CustomEvent("chat:jump-to-message", {
-        detail: {
-          messageId: message._id,
-          createdAt: message.createdAt,
-        },
-      })
-    );
+function jumpToMessage(message) {
+  console.log("JUMPING TO", message._id);
 
-    setSearch("");
-    setResults([]);
-  }
+  window.dispatchEvent(
+    new CustomEvent("chat:jump-to-message", {
+      detail: {
+        messageId: message._id,
+        createdAt: message.createdAt,
+      },
+    })
+  );
+
+  setSearch("");
+  setResults([]);
+}
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-white/10 bg-[#080b18]/80 px-5 backdrop-blur-xl">

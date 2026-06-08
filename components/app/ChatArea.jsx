@@ -111,6 +111,34 @@ export default function ChatArea() {
       removeTypingUser(message.authorId?._id || message.authorId);
     }
 
+    function handleJump(event) {
+        console.log("RECEIVED JUMP EVENT", event.detail);
+
+        const messageId = event.detail?.messageId;
+
+        if (!messageId) return;
+
+        const element = messageRefs.current[messageId];
+
+        console.log("FOUND ELEMENT", element);
+
+        if (!element) {
+          console.warn("MESSAGE_NOT_LOADED", messageId);
+          return;
+        }
+
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        setHighlightedMessageId(messageId);
+
+        setTimeout(() => {
+          setHighlightedMessageId(null);
+        }, 3000);
+      }
+
     function handleUpdatedMessage(updatedMessage) {
       setMessages((prev) =>
         prev.map((message) =>
