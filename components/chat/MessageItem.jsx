@@ -3,6 +3,7 @@ import { Pencil, Reply, Trash2 } from "lucide-react";
 import ReplyPreview from "@/components/chat/ReplyPreview";
 import MessageAttachments from "@/components/chat/MessageAttachments";
 import EmbedCard from "@/components/chat/EmbedCard";
+import FormattedMessage from "@/components/chat/FormattedMessage";
 
 export default function MessageItem({
   message,
@@ -18,7 +19,6 @@ export default function MessageItem({
   messageRefs,
   getAuthorId,
   formatTime,
-  renderMessageContent,
   openUserProfile,
   startReply,
   handleSaveEdit,
@@ -205,13 +205,13 @@ export default function MessageItem({
         ) : (
           <>
             {message.content && (
-              <p className="whitespace-pre-wrap break-words text-slate-100 leading-[1.375rem]">
-                {renderMessageContent(message.content)}
+              <div className="mt-0">
+                <FormattedMessage content={message.content} />
 
                 {message.edited && grouped && (
                   <span className="ml-2 text-xs text-slate-500">edited</span>
                 )}
-              </p>
+              </div>
             )}
 
             <MessageAttachments

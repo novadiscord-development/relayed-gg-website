@@ -71,7 +71,6 @@ export default function ChatMessageList({
               messageRefs={messageRefs}
               getAuthorId={getAuthorId}
               formatTime={formatTime}
-              renderMessageContent={renderMessageContent}
               openUserProfile={openUserProfile}
               startReply={startReply}
               handleSaveEdit={handleSaveEdit}
