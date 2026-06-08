@@ -14,6 +14,7 @@ import {
   Send,
 } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
+import UserProfilePopout from "@/components/users/UserProfilePopout";
 
 const emptyEmbed = {
   content: "",
@@ -40,6 +41,8 @@ export default function ChatArea() {
   const [messages, setMessages] = useState([]);
   const [members, setMembers] = useState([]);
   const [currentMember, setCurrentMember] = useState(null);
+  const [selectedMember, setSelectedMember] = useState(null);
+
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -72,6 +75,7 @@ export default function ChatArea() {
     setTypingUsers([]);
     setHasMoreMessages(true);
     setOldestMessageAt(null);
+    setSelectedMember(null);
 
     loadChannel();
     loadMessages(true);
@@ -88,7 +92,9 @@ export default function ChatArea() {
 
     function handleNewMessage(message) {
       setMessages((prev) =>
-        prev.some((item) => item._id === message._id) ? prev : [...prev, message]
+        prev.some((item) => item._id === message._id)
+          ? prev
+          : [...prev, message]
       );
 
       removeTypingUser(message.authorId?._id || message.authorId);
@@ -103,7 +109,9 @@ export default function ChatArea() {
     }
 
     function handleDeletedMessage({ messageId }) {
-      setMessages((prev) => prev.filter((message) => message._id !== messageId));
+      setMessages((prev) =>
+        prev.filter((message) => message._id !== messageId)
+      );
     }
 
     function handleTyping(user) {
@@ -175,6 +183,7 @@ export default function ChatArea() {
     if (
       editingMessage ||
       showEmbedComposer ||
+      selectedMember ||
       document.activeElement === inputRef.current
     ) {
       return;
@@ -210,6 +219,23 @@ export default function ChatArea() {
   function getAuthorId(message) {
     const author = message?.authorId;
     return (author?._id || author || "").toString();
+  }
+
+  function findMemberByUser(user) {
+    const userId = (user?._id || user || "").toString();
+
+    return (
+      members.find((member) => member.userId?._id?.toString() === userId) || {
+        _id: userId,
+        role: "member",
+        userId: user,
+      }
+    );
+  }
+
+  function openUserProfile(user) {
+    if (!user) return;
+    setSelectedMember(findMemberByUser(user));
   }
 
   async function loadChannel() {
@@ -481,9 +507,15 @@ export default function ChatArea() {
     return (
       <div className="mb-1 flex max-w-full items-center gap-2 text-xs text-slate-500">
         <span className="text-slate-600">↳</span>
-        <span className="shrink-0 font-semibold text-slate-400">
+
+        <button
+          type="button"
+          onClick={() => openUserProfile(reply.authorId)}
+          className="shrink-0 font-semibold text-slate-400 hover:text-white hover:underline"
+        >
           {reply.authorId?.username || "Unknown User"}
-        </span>
+        </button>
+
         <span className="truncate text-slate-500">
           {reply.content || "Original message unavailable"}
         </span>
@@ -696,369 +728,412 @@ export default function ChatArea() {
   }
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
-      <div
-        ref={messagesContainerRef}
-        className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
-      >
-        <div className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600/20">
-            <span className="text-4xl">#</span>
+    <>
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#080b18]">
+        <div
+          ref={messagesContainerRef}
+          className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
+        >
+          <div className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600/20">
+              <span className="text-4xl">#</span>
+            </div>
+
+            <h2 className="text-3xl font-black">
+              Welcome to #{channel?.name || "channel"}!
+            </h2>
+
+            <p className="mt-2 text-slate-400">
+              This is the start of the #{channel?.name || "channel"} channel.
+            </p>
           </div>
 
-          <h2 className="text-3xl font-black">
-            Welcome to #{channel?.name || "channel"}!
-          </h2>
+          {loading ? (
+            <p className="text-sm text-slate-500">Loading messages...</p>
+          ) : messages.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No messages yet. Start the conversation.
+            </p>
+          ) : (
+            <div className="space-y-0">
+              {loadingMore && (
+                <p className="py-3 text-center text-xs text-slate-500">
+                  Loading older messages...
+                </p>
+              )}
 
-          <p className="mt-2 text-slate-400">
-            This is the start of the #{channel?.name || "channel"} channel.
-          </p>
-        </div>
+              {!hasMoreMessages && messages.length > 0 && (
+                <p className="py-3 text-center text-xs text-slate-600">
+                  Beginning of channel
+                </p>
+              )}
 
-        {loading ? (
-          <p className="text-sm text-slate-500">Loading messages...</p>
-        ) : messages.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            No messages yet. Start the conversation.
-          </p>
-        ) : (
-          <div className="space-y-0">
-            {loadingMore && (
-              <p className="py-3 text-center text-xs text-slate-500">
-                Loading older messages...
-              </p>
-            )}
+              {messages.map((message, index) => {
+                const author = message.authorId;
+                const isEditing = editingMessage?._id === message._id;
+                const previousMessage = messages[index - 1];
 
-            {!hasMoreMessages && messages.length > 0 && (
-              <p className="py-3 text-center text-xs text-slate-600">
-                Beginning of channel
-              </p>
-            )}
+                const grouped =
+                  previousMessage &&
+                  !previousMessage.system &&
+                  !message.system &&
+                  !message.replyToId &&
+                  getAuthorId(previousMessage) === getAuthorId(message);
 
-            {messages.map((message, index) => {
-              const author = message.authorId;
-              const isEditing = editingMessage?._id === message._id;
-              const previousMessage = messages[index - 1];
+                const isAuthor = getAuthorId(message) === session?.user?.id;
+                const canModerateMessages = [
+                  "owner",
+                  "admin",
+                  "moderator",
+                ].includes(currentMember?.role);
 
-              const grouped =
-                previousMessage &&
-                !previousMessage.system &&
-                !message.system &&
-                !message.replyToId &&
-                getAuthorId(previousMessage) === getAuthorId(message);
+                if (message.system) {
+                  return (
+                    <div
+                      key={message._id}
+                      className="flex items-center gap-3 py-3"
+                    >
+                      <div className="h-px flex-1 bg-white/10" />
+                      <span className="max-w-[70%] text-center text-sm text-slate-500">
+                        {message.content}
+                      </span>
+                      <div className="h-px flex-1 bg-white/10" />
+                    </div>
+                  );
+                }
 
-              const isAuthor = getAuthorId(message) === session?.user?.id;
-              const canModerateMessages = [
-                "owner",
-                "admin",
-                "moderator",
-              ].includes(currentMember?.role);
-
-              if (message.system) {
                 return (
                   <div
                     key={message._id}
-                    className="flex items-center gap-3 py-3"
+                    className={`group relative flex gap-4 rounded-lg px-2 transition ${
+                      grouped ? "py-[1px]" : "py-2"
+                    } ${
+                      isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"
+                    }`}
                   >
-                    <div className="h-px flex-1 bg-white/10" />
-                    <span className="max-w-[70%] text-center text-sm text-slate-500">
-                      {message.content}
-                    </span>
-                    <div className="h-px flex-1 bg-white/10" />
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={message._id}
-                  className={`group relative flex gap-4 rounded-lg px-2 transition ${
-                    grouped ? "py-[1px]" : "py-2"
-                  } ${isEditing ? "bg-white/[0.05]" : "hover:bg-white/[0.04]"}`}
-                >
-                  {!isEditing && (
-                    <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => startReply(message)}
-                        className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                      >
-                        <Reply size={16} />
-                      </button>
-
-                      {isAuthor && (
+                    {!isEditing && (
+                      <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
                         <button
                           type="button"
                           onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => {
-                            setEditingMessage(message);
-                            setEditContent(message.content);
-                            setReplyingTo(null);
-                          }}
+                          onClick={() => startReply(message)}
                           className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
                         >
-                          <Pencil size={16} />
+                          <Reply size={16} />
                         </button>
-                      )}
 
-                      {(isAuthor || canModerateMessages) && (
-                        <button
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => handleDeleteMessage(message)}
-                          className="p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {grouped ? (
-                    <div className="w-11 shrink-0 text-right text-[10px] text-slate-600 opacity-0 transition group-hover:opacity-100">
-                      {formatTime(message.createdAt)}
-                    </div>
-                  ) : (
-                    <Image
-                      src={author?.avatar || "/logo.png"}
-                      alt={author?.username || "User"}
-                      width={44}
-                      height={44}
-                      className="h-11 w-11 rounded-full"
-                    />
-                  )}
-
-                  <div className="min-w-0 flex-1">
-                    {message.replyToId && (
-                      <ReplyPreview reply={message.replyToId} />
-                    )}
-
-                    {!grouped && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-violet-300">
-                          {author?.username || "Unknown User"}
-                        </span>
-
-                        {author?.isStaff && (
-                          <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-black">
-                            STAFF
-                          </span>
+                        {isAuthor && (
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setEditingMessage(message);
+                              setEditContent(message.content);
+                              setReplyingTo(null);
+                            }}
+                            className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                          >
+                            <Pencil size={16} />
+                          </button>
                         )}
 
-                        {author?.isAdmin && (
-                          <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-black">
-                            ADMIN
-                          </span>
-                        )}
-
-                        <span className="text-xs text-slate-500">
-                          {formatTime(message.createdAt)}
-                        </span>
-
-                        {message.edited && !isEditing && (
-                          <span className="text-xs text-slate-500">edited</span>
+                        {(isAuthor || canModerateMessages) && (
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleDeleteMessage(message)}
+                            className="p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         )}
                       </div>
                     )}
 
-                    {isEditing ? (
-                      <div className={grouped ? "mt-0" : "mt-2"}>
-                        <textarea
-                          value={editContent}
-                          onChange={(e) => setEditContent(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") cancelEdit();
-
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSaveEdit();
-                            }
-                          }}
-                          rows={3}
-                          autoFocus
-                          className="w-full resize-none rounded-lg border border-white/10 bg-[#0b0f1d] px-3 py-2 text-sm text-white outline-none focus:border-violet-500"
-                        />
-
-                        <p className="mt-2 text-xs text-slate-500">
-                          escape to{" "}
-                          <button
-                            type="button"
-                            onClick={cancelEdit}
-                            className="text-blue-400 hover:underline"
-                          >
-                            cancel
-                          </button>{" "}
-                          • enter to{" "}
-                          <button
-                            type="button"
-                            onClick={handleSaveEdit}
-                            className="text-blue-400 hover:underline"
-                          >
-                            save
-                          </button>
-                        </p>
+                    {grouped ? (
+                      <div className="w-11 shrink-0 text-right text-[10px] text-slate-600 opacity-0 transition group-hover:opacity-100">
+                        {formatTime(message.createdAt)}
                       </div>
                     ) : (
-                      <>
-                        {message.content && (
-                          <p className="whitespace-pre-wrap break-words text-slate-100 leading-[1.375rem]">
-                            {renderMessageContent(message.content)}
-
-                            {message.edited && grouped && (
-                              <span className="ml-2 text-xs text-slate-500">
-                                edited
-                              </span>
-                            )}
-                          </p>
-                        )}
-
-                        {message.embeds?.length > 0 && (
-                          <div className="space-y-2">
-                            {message.embeds.map((embed, embedIndex) => (
-                              <EmbedCard
-                                key={`${message._id}-embed-${embedIndex}`}
-                                embed={embed}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => openUserProfile(author)}
+                        className="h-11 w-11 shrink-0"
+                      >
+                        <Image
+                          src={author?.avatar || "/logo.png"}
+                          alt={author?.username || "User"}
+                          width={44}
+                          height={44}
+                          className="h-11 w-11 rounded-full transition hover:opacity-80"
+                        />
+                      </button>
                     )}
+
+                    <div className="min-w-0 flex-1">
+                      {message.replyToId && (
+                        <ReplyPreview reply={message.replyToId} />
+                      )}
+
+                      {!grouped && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openUserProfile(author)}
+                            className="font-bold text-violet-300 hover:underline"
+                          >
+                            {author?.username || "Unknown User"}
+                          </button>
+
+                          {author?.isStaff && (
+                            <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-black">
+                              STAFF
+                            </span>
+                          )}
+
+                          {author?.isAdmin && (
+                            <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-black">
+                              ADMIN
+                            </span>
+                          )}
+
+                          <span className="text-xs text-slate-500">
+                            {formatTime(message.createdAt)}
+                          </span>
+
+                          {message.edited && !isEditing && (
+                            <span className="text-xs text-slate-500">
+                              edited
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {isEditing ? (
+                        <div className={grouped ? "mt-0" : "mt-2"}>
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") cancelEdit();
+
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSaveEdit();
+                              }
+                            }}
+                            rows={3}
+                            autoFocus
+                            className="w-full resize-none rounded-lg border border-white/10 bg-[#0b0f1d] px-3 py-2 text-sm text-white outline-none focus:border-violet-500"
+                          />
+
+                          <p className="mt-2 text-xs text-slate-500">
+                            escape to{" "}
+                            <button
+                              type="button"
+                              onClick={cancelEdit}
+                              className="text-blue-400 hover:underline"
+                            >
+                              cancel
+                            </button>{" "}
+                            • enter to{" "}
+                            <button
+                              type="button"
+                              onClick={handleSaveEdit}
+                              className="text-blue-400 hover:underline"
+                            >
+                              save
+                            </button>
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          {message.content && (
+                            <p className="whitespace-pre-wrap break-words text-slate-100 leading-[1.375rem]">
+                              {renderMessageContent(message.content)}
+
+                              {message.edited && grouped && (
+                                <span className="ml-2 text-xs text-slate-500">
+                                  edited
+                                </span>
+                              )}
+                            </p>
+                          )}
+
+                          {message.embeds?.length > 0 && (
+                            <div className="space-y-2">
+                              {message.embeds.map((embed, embedIndex) => (
+                                <EmbedCard
+                                  key={`${message._id}-embed-${embedIndex}`}
+                                  embed={embed}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
-            <div ref={bottomRef} />
-          </div>
-        )}
-      </div>
-
-      <form
-        onSubmit={sendMessage}
-        onMouseDown={(e) => e.stopPropagation()}
-        className="relative shrink-0 border-t border-white/10 bg-[#080b18] p-4"
-      >
-        {showMentions && pingableMembers.length > 0 && (
-          <div className="absolute bottom-[86px] left-4 right-4 max-h-72 overflow-y-auto rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
-            {pingableMembers.map((member) => {
-              const user = member.userId;
-
-              return (
-                <button
-                  key={member._id}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => insertMention(member)}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-white/[0.06]"
-                >
-                  <Image
-                    src={user?.avatar || "/logo.png"}
-                    alt={user?.username || "User"}
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 rounded-full"
-                  />
-
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-white">
-                      {user?.username}
-                    </p>
-                    <p className="text-xs capitalize text-slate-500">
-                      @{user?.username}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {replyingTo && (
-          <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
-            <div className="min-w-0">
-              <p className="text-xs text-slate-400">
-                Replying to{" "}
-                <span className="font-semibold text-violet-300">
-                  {replyingTo.authorId?.username || "Unknown User"}
-                </span>
-              </p>
-              <p className="truncate text-sm text-slate-300">
-                {replyingTo.content}
-              </p>
+              <div ref={bottomRef} />
             </div>
+          )}
+        </div>
 
+        <form
+          onSubmit={sendMessage}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="relative shrink-0 border-t border-white/10 bg-[#080b18] p-4"
+        >
+          {showMentions && pingableMembers.length > 0 && (
+            <div className="absolute bottom-[86px] left-4 right-4 max-h-72 overflow-y-auto rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
+              {pingableMembers.map((member) => {
+                const user = member.userId;
+
+                return (
+                  <div
+                    key={member._id}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/[0.06]"
+                  >
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => openUserProfile(user)}
+                      className="shrink-0"
+                    >
+                      <Image
+                        src={user?.avatar || "/logo.png"}
+                        alt={user?.username || "User"}
+                        width={32}
+                        height={32}
+                        className="h-8 w-8 rounded-full"
+                      />
+                    </button>
+
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => insertMention(member)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className="truncate text-sm font-bold text-white">
+                        {user?.username}
+                      </p>
+                      <p className="text-xs capitalize text-slate-500">
+                        @{user?.username}
+                      </p>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {replyingTo && (
+            <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400">
+                  Replying to{" "}
+                  <button
+                    type="button"
+                    onClick={() => openUserProfile(replyingTo.authorId)}
+                    className="font-semibold text-violet-300 hover:underline"
+                  >
+                    {replyingTo.authorId?.username || "Unknown User"}
+                  </button>
+                </p>
+                <p className="truncate text-sm text-slate-300">
+                  {replyingTo.content}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setReplyingTo(null);
+                  focusInput();
+                }}
+                className="ml-3 text-slate-500 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          )}
+
+          <TypingIndicator />
+          {renderEmbedComposer()}
+
+          <div
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) focusInput();
+            }}
+            className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3"
+          >
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                setReplyingTo(null);
-                focusInput();
-              }}
-              className="ml-3 text-slate-500 hover:text-white"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-300 hover:bg-violet-600 hover:text-white"
             >
-              <X size={18} />
+              <Plus size={18} />
             </button>
+
+            <input
+              ref={inputRef}
+              value={content}
+              onChange={handleContentChange}
+              disabled={!!editingMessage || showEmbedComposer}
+              placeholder={
+                showEmbedComposer
+                  ? "Finish or close embed composer"
+                  : `Message #${channel?.name || "channel"}`
+              }
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
+            />
+
+            <div className="flex shrink-0 items-center gap-3 text-slate-400">
+              <Gift
+                size={19}
+                className="cursor-pointer transition hover:text-white"
+              />
+
+              {canCreateEmbeds && (
+                <button
+                  type="button"
+                  onClick={() => setShowEmbedComposer((prev) => !prev)}
+                  className={`transition ${
+                    showEmbedComposer
+                      ? "text-violet-300"
+                      : "hover:text-violet-300"
+                  }`}
+                  title="Create Embed"
+                >
+                  <PanelsTopLeft size={18} />
+                </button>
+              )}
+
+              <Smile
+                size={19}
+                className="cursor-pointer transition hover:text-white"
+              />
+            </div>
           </div>
-        )}
+        </form>
+      </section>
 
-        <TypingIndicator />
-        {renderEmbedComposer()}
-
-        <div
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) focusInput();
+      {selectedMember && (
+        <UserProfilePopout
+          user={selectedMember.userId}
+          member={selectedMember}
+          presence={{ status: "offline", customStatus: "" }}
+          onClose={() => {
+            setSelectedMember(null);
+            focusInput();
           }}
-          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3"
-        >
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-300 hover:bg-violet-600 hover:text-white"
-          >
-            <Plus size={18} />
-          </button>
-
-          <input
-            ref={inputRef}
-            value={content}
-            onChange={handleContentChange}
-            disabled={!!editingMessage || showEmbedComposer}
-            placeholder={
-              showEmbedComposer
-                ? "Finish or close embed composer"
-                : `Message #${channel?.name || "channel"}`
-            }
-            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
-          />
-
-          <div className="flex shrink-0 items-center gap-3 text-slate-400">
-            <Gift
-              size={19}
-              className="cursor-pointer transition hover:text-white"
-            />
-
-            {canCreateEmbeds && (
-              <button
-                type="button"
-                onClick={() => setShowEmbedComposer((prev) => !prev)}
-                className={`transition ${
-                  showEmbedComposer ? "text-violet-300" : "hover:text-violet-300"
-                }`}
-                title="Create Embed"
-              >
-                <PanelsTopLeft size={18} />
-              </button>
-            )}
-
-            <Smile
-              size={19}
-              className="cursor-pointer transition hover:text-white"
-            />
-          </div>
-        </div>
-      </form>
-    </section>
+        />
+      )}
+    </>
   );
 }

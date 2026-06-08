@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
+import UserProfilePopout from "@/components/users/UserProfilePopout";
 
 export default function MemberSidebar() {
   const router = useRouter();
@@ -9,6 +10,7 @@ export default function MemberSidebar() {
   const [members, setMembers] = useState([]);
   const [presences, setPresences] = useState({});
   const [search, setSearch] = useState("");
+  const [selectedMember, setSelectedMember] = useState(null);
 
   useEffect(() => {
     if (!serverId) return;
@@ -37,12 +39,7 @@ export default function MemberSidebar() {
   }
 
   function getPresence(userId) {
-    return (
-      presences?.[userId] || {
-        status: "offline",
-        customStatus: "",
-      }
-    );
+    return presences?.[userId] || { status: "offline", customStatus: "" };
   }
 
   function getStatus(userId) {
@@ -58,10 +55,7 @@ export default function MemberSidebar() {
 
   function getDisplayStatus(userId) {
     const presence = getPresence(userId);
-
-    if (presence.status === "offline") {
-      return "Offline";
-    }
+    if (presence.status === "offline") return "Offline";
 
     return presence.customStatus?.trim() || getStatusLabel(presence.status);
   }
@@ -92,7 +86,11 @@ export default function MemberSidebar() {
     const status = getStatus(user?._id);
 
     return (
-      <div className="flex items-center gap-3 rounded-lg px-2 py-1.5 transition hover:bg-white/[0.04]">
+      <button
+        type="button"
+        onClick={() => setSelectedMember(member)}
+        className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.04]"
+      >
         <div className="relative shrink-0">
           <Image
             src={user?.avatar || "/logo.png"}
@@ -136,7 +134,7 @@ export default function MemberSidebar() {
             {getDisplayStatus(user?._id)}
           </p>
         </div>
-      </div>
+      </button>
     );
   }
 
@@ -159,25 +157,36 @@ export default function MemberSidebar() {
   }
 
   return (
-    <aside className="hidden h-screen w-[280px] shrink-0 border-l border-white/10 bg-[#0b0f1d] xl:flex xl:flex-col">
-      <div className="shrink-0 p-4">
-        <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search"
-            className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
-          />
+    <>
+      <aside className="hidden h-screen w-[280px] shrink-0 border-l border-white/10 bg-[#0b0f1d] xl:flex xl:flex-col">
+        <div className="shrink-0 p-4">
+          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search"
+              className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-4">
-        <MemberGroup title="Owner" members={ownerMembers} />
-        <MemberGroup title="Admin" members={adminMembers} />
-        <MemberGroup title="Moderator" members={moderatorMembers} />
-        <MemberGroup title="Online" members={onlineMembers} />
-        <MemberGroup title="Offline" members={offlineMembers} />
-      </div>
-    </aside>
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-4">
+          <MemberGroup title="Owner" members={ownerMembers} />
+          <MemberGroup title="Admin" members={adminMembers} />
+          <MemberGroup title="Moderator" members={moderatorMembers} />
+          <MemberGroup title="Online" members={onlineMembers} />
+          <MemberGroup title="Offline" members={offlineMembers} />
+        </div>
+      </aside>
+
+      {selectedMember && (
+        <UserProfilePopout
+          user={selectedMember.userId}
+          member={selectedMember}
+          presence={getPresence(selectedMember.userId?._id)}
+          onClose={() => setSelectedMember(null)}
+        />
+      )}
+    </>
   );
 }
