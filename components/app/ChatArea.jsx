@@ -95,29 +95,40 @@ export default function ChatArea() {
   }, [serverId, channelId]);
 
   useEffect(() => {
-    function handleJump(event) {
-      const messageId = event.detail?.messageId;
+function handleJump(event) {
+  const message = event.detail?.message;
+  const messageId = event.detail?.messageId;
 
-      if (!messageId) return;
+  if (!messageId) return;
 
-      const element = messageRefs.current[messageId];
+  setMessages((prev) => {
+    if (prev.some((item) => item._id === messageId)) return prev;
+    if (!message) return prev;
+    return [...prev, message].sort(
+      (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+    );
+  });
 
-      if (!element) {
-        console.warn("MESSAGE_NOT_LOADED", messageId);
-        return;
-      }
+  setTimeout(() => {
+    const element = messageRefs.current[messageId];
 
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-
-      setHighlightedMessageId(messageId);
-
-      setTimeout(() => {
-        setHighlightedMessageId(null);
-      }, 3000);
+    if (!element) {
+      console.warn("MESSAGE_NOT_RENDERED", messageId);
+      return;
     }
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    setHighlightedMessageId(messageId);
+
+    setTimeout(() => {
+      setHighlightedMessageId(null);
+    }, 3000);
+  }, 80);
+}
 
     document.addEventListener("chat:jump-to-message", handleJump);
 

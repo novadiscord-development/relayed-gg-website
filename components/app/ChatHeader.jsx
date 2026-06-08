@@ -68,6 +68,7 @@ function jumpToMessage(message) {
   window.dispatchEvent(
     new CustomEvent("chat:jump-to-message", {
       detail: {
+        message,
         messageId: message._id,
         createdAt: message.createdAt,
       },
