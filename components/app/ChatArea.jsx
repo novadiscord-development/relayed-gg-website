@@ -717,6 +717,7 @@ export default function ChatArea() {
             handlePaste={handlePaste}
             setShowEmbedComposer={setShowEmbedComposer}
             focusInput={focusInput}
+            sendMessage={sendMessage}
           />
         </form>
       </section>

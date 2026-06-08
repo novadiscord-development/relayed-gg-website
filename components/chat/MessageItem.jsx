@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Pencil, Reply, Trash2 } from "lucide-react";
+import { Copy, Pencil, Reply, Trash2 } from "lucide-react";
 import ReplyPreview from "@/components/chat/ReplyPreview";
 import MessageAttachments from "@/components/chat/MessageAttachments";
 import EmbedCard from "@/components/chat/EmbedCard";
@@ -30,6 +30,16 @@ export default function MessageItem({
 }) {
   const author = message.authorId;
   const isEditing = editingMessage?._id === message._id;
+
+  async function copyMessage() {
+  if (!message.content) return;
+
+  try {
+    await navigator.clipboard.writeText(message.content);
+  } catch (error) {
+    console.error("COPY_MESSAGE_ERROR", error);
+  }
+}
 
   const grouped =
     previousMessage &&
@@ -78,6 +88,16 @@ export default function MessageItem({
           >
             <Reply size={16} />
           </button>
+
+          <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={copyMessage}
+          className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+          title="Copy message"
+        >
+          <Copy size={16} />
+        </button>
 
           {isAuthor && (
             <button
