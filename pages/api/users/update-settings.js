@@ -81,11 +81,11 @@ export default async function handler(req, res) {
     }
 
     const user = await User.findByIdAndUpdate(
-      session.user.id,
-      { $set: update },
-      returnDocument: "after",
+    session.user.id,
+    { $set: update },
+    { returnDocument: "after" }
     ).select(
-      "username email avatar banner bio pronouns customStatus isStaff isAdmin badges settings"
+    "username email avatar banner bio pronouns customStatus isStaff isAdmin badges settings"
     );
 
     return res.status(200).json({ user });
