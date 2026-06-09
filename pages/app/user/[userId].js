@@ -468,16 +468,6 @@ export default function UserProfilePage() {
                         )}
                       </div>
 
-                      <div className="mt-3 flex items-center gap-2">
-                        <span
-                          className={`h-2.5 w-2.5 rounded-full ${statusColor}`}
-                        />
-
-                        <span className="text-sm text-slate-400">
-                          {statusLabel}
-                        </span>
-                      </div>
-
                       {customStatus && (
                         <p className="mt-2 text-sm text-slate-300">
                           {customStatus}
