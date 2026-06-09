@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Plus, Gift, Smile, Reply, X, Pencil, Trash2, CheckLine } from "lucide-react";
+import { Plus, Gift, Smile, Reply, X, Pencil, Trash2, Check } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import UserProfilePopout from "@/components/users/UserProfilePopout";
 
