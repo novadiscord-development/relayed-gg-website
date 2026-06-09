@@ -705,8 +705,9 @@ export default function DMChatArea() {
                           </button>
 
                           {message.systemBot && (
-                            <span className="rounded bg-cyan-600 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
-                              APP <Check />
+                            <span className="inline-flex items-center gap-1 rounded bg-[#5865F2] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+                              APP
+                              <Check size={10} strokeWidth={3} />
                             </span>
                           )}
 
