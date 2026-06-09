@@ -71,7 +71,7 @@ callbacks: {
       token.isStaff = user.isStaff;
       token.isAdmin = user.isAdmin;
       token.badges = user.badges || [];
-      token.picture = user.image;
+      token.avatar = user.image;
     }
 
     if (trigger === "update") {
