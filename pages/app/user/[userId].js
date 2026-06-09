@@ -455,7 +455,7 @@ export default function UserProfilePage() {
                       />
                     </div>
 
-                    <div className="flex flex-col justify-center">
+                    <div className="pt-16">
                       <div className="flex flex-wrap items-center gap-3">
                         <h1 className="text-4xl font-black leading-none">
                           {profile.username || profile.name || "Unknown User"}
@@ -492,7 +492,7 @@ export default function UserProfilePage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-3 pb-2 md:self-end">
+                  <div className="flex flex-wrap gap-3 pt-16 md:self-start">
                     <button
                       type="button"
                       onClick={startDM}
