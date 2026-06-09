@@ -5,6 +5,8 @@ import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 import Friend from "@/models/Friend";
 import FriendRequest from "@/models/FriendRequest";
+import UserNotification from "@/models/UserNotification";
+import { pusherServer } from "@/lib/pusher";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -31,7 +33,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "You cannot add yourself" });
     }
 
-    const targetUser = await User.findById(userId).select("_id");
+    const targetUser = await User.findById(userId).select("_id username");
 
     if (!targetUser) {
       return res.status(404).json({ message: "User not found" });
@@ -63,6 +65,22 @@ export default async function handler(req, res) {
       fromUserId: currentUserId,
       toUserId: userId,
       status: "pending",
+    });
+
+    const actorName =
+      session.user.username || session.user.name || "Someone";
+
+    const notification = await UserNotification.create({
+      userId,
+      type: "friend_request",
+      actorId: currentUserId,
+      title: "New friend request",
+      message: `${actorName} sent you a friend request.`,
+      read: false,
+    });
+
+    await pusherServer.trigger(`user-${userId}`, "notification:new", {
+      notification,
     });
 
     return res.status(201).json({ request });

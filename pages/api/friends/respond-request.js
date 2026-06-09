@@ -4,6 +4,8 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Friend from "@/models/Friend";
 import FriendRequest from "@/models/FriendRequest";
+import UserNotification from "@/models/UserNotification";
+import { pusherServer } from "@/lib/pusher";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -12,7 +14,10 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session) return res.status(401).json({ message: "Unauthorized" });
+
+    if (!session) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     await connectDB();
 
@@ -55,6 +60,24 @@ export default async function handler(req, res) {
           upsert: true,
           returnDocument: "after",
         }
+      );
+
+      const actorName =
+        session.user.username || session.user.name || "Someone";
+
+      const notification = await UserNotification.create({
+        userId: request.fromUserId,
+        type: "friend_accept",
+        actorId: session.user.id,
+        title: "Friend request accepted",
+        message: `${actorName} accepted your friend request.`,
+        read: false,
+      });
+
+      await pusherServer.trigger(
+        `user-${request.fromUserId}`,
+        "notification:new",
+        { notification }
       );
     }
 
