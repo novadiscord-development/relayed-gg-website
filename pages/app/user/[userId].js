@@ -6,6 +6,7 @@ import {
   MessageCircle,
   Shield,
   UserPlus,
+  User2,
   CalendarDays,
   Check,
   UserCheck,
