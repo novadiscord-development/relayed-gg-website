@@ -10,6 +10,8 @@ import {
   Check,
   UserCheck,
   Ban,
+  Users,
+  Server,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -19,6 +21,9 @@ export default function UserProfilePage() {
 
   const [profile, setProfile] = useState(null);
   const [presence, setPresence] = useState(null);
+  const [mutualFriends, setMutualFriends] = useState([]);
+  const [mutualServers, setMutualServers] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [friendLoading, setFriendLoading] = useState(false);
   const [friendMessage, setFriendMessage] = useState("");
@@ -44,6 +49,8 @@ export default function UserProfilePage() {
       if (res.ok) {
         setProfile(data.user);
         setPresence(data.presence || null);
+        setMutualFriends(data.mutualFriends || []);
+        setMutualServers(data.mutualServers || []);
       }
     } catch (error) {
       console.error("LOAD_USER_PROFILE_ERROR", error);
@@ -439,8 +446,8 @@ export default function UserProfilePage() {
               </div>
 
               <div className="px-8 pb-8">
-                <div className="-mt-14 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                  <div className="flex flex-col gap-5 md:flex-row md:items-center">
+                <div className="-mt-10 flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                  <div className="flex flex-col gap-5 md:flex-row md:items-start">
                     <div className="relative mt-4 h-32 w-32 shrink-0 overflow-hidden rounded-full border-8 border-[#0b0f1d] bg-violet-600 shadow-2xl">
                       <Image
                         src={profile.avatar || profile.image || "/logo.png"}
@@ -466,6 +473,15 @@ export default function UserProfilePage() {
                             {profile.pronouns}
                           </span>
                         )}
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-2">
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${statusColor}`}
+                        />
+                        <span className="text-sm text-slate-400">
+                          {statusLabel}
+                        </span>
                       </div>
 
                       {customStatus && (
@@ -511,13 +527,83 @@ export default function UserProfilePage() {
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                      <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
+                      <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-slate-500">
+                        <Users size={15} />
+                        Mutual Friends
+                      </h2>
+
+                      {mutualFriends.length === 0 ? (
+                        <p className="mt-3 text-sm text-slate-500">
+                          No mutual friends yet.
+                        </p>
+                      ) : (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          {mutualFriends.map((friend) => (
+                            <button
+                              key={friend._id}
+                              type="button"
+                              onClick={() => router.push(`/app/user/${friend._id}`)}
+                              className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:bg-white/[0.06]"
+                            >
+                              <Image
+                                src={friend.avatar || friend.image || "/logo.png"}
+                                alt={friend.username || "User"}
+                                width={36}
+                                height={36}
+                                className="h-9 w-9 rounded-full object-cover"
+                              />
+
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-bold text-white">
+                                  {friend.username || "Unknown User"}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Mutual friend
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                      <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-slate-500">
+                        <Server size={15} />
                         Mutual Servers
                       </h2>
 
-                      <p className="mt-3 text-sm text-slate-500">
-                        Mutual servers will appear here soon.
-                      </p>
+                      {mutualServers.length === 0 ? (
+                        <p className="mt-3 text-sm text-slate-500">
+                          No mutual servers yet.
+                        </p>
+                      ) : (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          {mutualServers.map((server) => (
+                            <div
+                              key={server._id}
+                              className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                            >
+                              <Image
+                                src={server.icon || server.image || "/logo.png"}
+                                alt={server.name || "Server"}
+                                width={36}
+                                height={36}
+                                className="h-9 w-9 rounded-xl object-cover"
+                              />
+
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-bold text-white">
+                                  {server.name || "Unknown Server"}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Mutual server
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
