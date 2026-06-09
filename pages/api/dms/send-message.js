@@ -2,9 +2,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
+import User from "@/models/User";
 import Conversation from "@/models/Conversation";
 import DMMessage from "@/models/DMMessage";
 import DMNotification from "@/models/DMNotification";
+import UserNotification from "@/models/UserNotification";
 import BlockedUser from "@/models/blockedUser";
 import { pusherServer } from "@/lib/pusher";
 
@@ -91,31 +93,31 @@ export default async function handler(req, res) {
       ],
     });
 
-if (block) {
-  const relayMessage = {
-    _id: `relay-blocked-${conversationId}`,
-    systemBot: true,
-    authorId: {
-      username: "Relay",
-      avatar: "/botlogo.png",
-      image: "/botlogo.png",
-    },
-    content: BLOCKED_DM_MESSAGE,
-    createdAt: new Date().toISOString(),
-  };
+    if (block) {
+      const relayMessage = {
+        _id: `relay-blocked-${conversationId}`,
+        systemBot: true,
+        authorId: {
+          username: "Relay",
+          avatar: "/botlogo.png",
+          image: "/botlogo.png",
+        },
+        content: BLOCKED_DM_MESSAGE,
+        createdAt: new Date().toISOString(),
+      };
 
-  await pusherServer.trigger(
-    `dm-${conversationId}`,
-    "dm:message:new",
-    relayMessage
-  );
+      await pusherServer.trigger(
+        `dm-${conversationId}`,
+        "dm:message:new",
+        relayMessage
+      );
 
-  return res.status(403).json({
-    blocked: true,
-    message: BLOCKED_DM_MESSAGE,
-    relayMessage,
-  });
-}
+      return res.status(403).json({
+        blocked: true,
+        message: BLOCKED_DM_MESSAGE,
+        relayMessage,
+      });
+    }
 
     let replyToMessage = null;
 
@@ -149,6 +151,10 @@ if (block) {
       (participant) => participant.toString() !== session.user.id.toString()
     );
 
+    const sender = await User.findById(session.user.id).select(
+      "username avatar image"
+    );
+
     await Promise.all(
       recipientIds.map((recipientId) =>
         DMNotification.findOneAndUpdate(
@@ -169,6 +175,27 @@ if (block) {
           }
         )
       )
+    );
+
+    await Promise.all(
+      recipientIds.map(async (recipientId) => {
+        const notification = await UserNotification.create({
+          userId: recipientId,
+          type: "dm_message",
+          actorId: session.user.id,
+          conversationId,
+          title: "New direct message",
+          message: `${sender?.username || "Someone"} sent you a message.`,
+          read: false,
+        });
+
+        await pusherServer.trigger(`user-${recipientId}`, "notification:new", {
+          notification: {
+            ...notification.toObject(),
+            actorId: sender,
+          },
+        });
+      })
     );
 
     message = await DMMessage.findById(message._id)

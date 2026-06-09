@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Hash, Bell, Pin, Users, Search } from "lucide-react";
+import { Hash, Bell, Pin, Users, Search, ExternalLink } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 
 export default function ChatHeader() {
@@ -131,6 +131,12 @@ export default function ChatHeader() {
     }
   }
 
+  async function openNotificationsPage() {
+    setNotificationsOpen(false);
+    await markAllNotificationsRead();
+    router.push("/app/notifications");
+  }
+
   function jumpToMessage(message) {
     window.dispatchEvent(
       new CustomEvent("chat:jump-to-message", {
@@ -188,8 +194,8 @@ export default function ChatHeader() {
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 top-8 z-50 w-96 overflow-hidden rounded-2xl border border-white/5 bg-[#111827] shadow-2xl">
-              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <div className="absolute right-0 top-8 z-50 w-96 overflow-hidden rounded-2xl border border-[#2b2d31] bg-[#1e1f22] shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
+              <div className="flex items-center justify-between border-b border-[#2b2d31] bg-[#111214] px-4 py-3">
                 <div>
                   <h2 className="text-sm font-black text-white">
                     Notifications
@@ -210,19 +216,17 @@ export default function ChatHeader() {
                 )}
               </div>
 
-              <div className="max-h-[420px] overflow-y-auto">
+              <div className="max-h-[420px] overflow-y-auto bg-[#1e1f22]">
                 {notifications.length === 0 ? (
-                  <p className="p-4 text-sm text-slate-500">
+                  <p className="p-6 text-center text-sm text-slate-400">
                     No notifications yet.
                   </p>
                 ) : (
                   notifications.map((notification) => (
                     <div
                       key={notification._id}
-                      className={`flex gap-3 border-b border-white/5 p-4 last:border-b-0 ${
-                        notification.read
-                          ? "bg-transparent"
-                          : "bg-violet-500/5"
+                      className={`flex gap-3 border-b border-[#2b2d31] p-4 transition hover:bg-[#2b2d31] last:border-b-0 ${
+                        notification.read ? "bg-[#1e1f22]" : "bg-[#232428]"
                       }`}
                     >
                       <Image
@@ -260,6 +264,15 @@ export default function ChatHeader() {
                   ))
                 )}
               </div>
+
+              <button
+                type="button"
+                onClick={openNotificationsPage}
+                className="flex w-full items-center justify-center gap-2 border-t border-[#2b2d31] bg-[#111214] px-4 py-3 text-sm font-bold text-violet-300 transition hover:bg-[#2b2d31] hover:text-violet-200"
+              >
+                View all notifications
+                <ExternalLink size={15} />
+              </button>
             </div>
           )}
         </div>
