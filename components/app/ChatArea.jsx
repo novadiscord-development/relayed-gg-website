@@ -574,6 +574,59 @@ export default function ChatArea() {
     focusInput();
   }
 
+  async function handleToggleReaction(message, emoji) {
+    try {
+      const res = await fetch("/api/messages/toggle-reaction", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messageId: message._id,
+          emoji,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) return;
+
+      setMessages((prev) =>
+        prev.map((item) =>
+          item._id === data.message._id ? data.message : item
+        )
+      );
+    } catch (error) {
+      console.error("TOGGLE_REACTION_ERROR", error);
+    }
+  }
+
+  async function handleTogglePin(message) {
+    try {
+      const res = await fetch("/api/messages/toggle-pin", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messageId: message._id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) return;
+
+      setMessages((prev) =>
+        prev.map((item) =>
+          item._id === data.message._id ? data.message : item
+        )
+      );
+    } catch (error) {
+      console.error("TOGGLE_PIN_ERROR", error);
+    }
+  }
+
   function cancelEdit() {
     setEditingMessage(null);
     setEditContent("");
@@ -588,33 +641,6 @@ export default function ChatArea() {
       day: "numeric",
     });
   }
-
-  async function handleToggleReaction(message, emoji) {
-  try {
-    const res = await fetch("/api/messages/toggle-reaction", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messageId: message._id,
-        emoji,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) return;
-
-    setMessages((prev) =>
-      prev.map((item) =>
-        item._id === data.message._id ? data.message : item
-      )
-    );
-  } catch (error) {
-    console.error("TOGGLE_REACTION_ERROR", error);
-  }
-}
 
   return (
     <>
@@ -646,6 +672,7 @@ export default function ChatArea() {
           handleSaveEdit={handleSaveEdit}
           handleDeleteMessage={handleDeleteMessage}
           onToggleReaction={handleToggleReaction}
+          onTogglePin={handleTogglePin}
           cancelEdit={cancelEdit}
           setPreviewImage={setPreviewImage}
         />

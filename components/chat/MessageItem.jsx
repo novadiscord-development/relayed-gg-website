@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Copy, Pencil, Reply, Trash2 } from "lucide-react";
+import { Copy, Pencil, Pin, Reply, Trash2 } from "lucide-react";
 import ReplyPreview from "@/components/chat/ReplyPreview";
 import MessageAttachments from "@/components/chat/MessageAttachments";
 import EmbedCard from "@/components/chat/EmbedCard";
@@ -27,19 +27,20 @@ export default function MessageItem({
   cancelEdit,
   setPreviewImage,
   onToggleReaction,
+  onTogglePin,
 }) {
   const author = message.authorId;
   const isEditing = editingMessage?._id === message._id;
 
   async function copyMessage() {
-  if (!message.content) return;
+    if (!message.content) return;
 
-  try {
-    await navigator.clipboard.writeText(message.content);
-  } catch (error) {
-    console.error("COPY_MESSAGE_ERROR", error);
+    try {
+      await navigator.clipboard.writeText(message.content);
+    } catch (error) {
+      console.error("COPY_MESSAGE_ERROR", error);
+    }
   }
-}
 
   const grouped =
     previousMessage &&
@@ -85,19 +86,36 @@ export default function MessageItem({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => startReply(message)}
             className="p-2 text-slate-400 hover:bg-white/6 hover:text-white"
+            title="Reply"
           >
             <Reply size={16} />
           </button>
 
           <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={copyMessage}
-          className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-          title="Copy message"
-        >
-          <Copy size={16} />
-        </button>
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={copyMessage}
+            className="p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+            title="Copy message"
+          >
+            <Copy size={16} />
+          </button>
+
+          {canModerateMessages && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onTogglePin?.(message)}
+              className={`p-2 hover:bg-white/[0.06] ${
+                message.pinned
+                  ? "text-amber-400 hover:text-amber-300"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              title={message.pinned ? "Unpin message" : "Pin message"}
+            >
+              <Pin size={16} />
+            </button>
+          )}
 
           {isAuthor && (
             <button
@@ -109,6 +127,7 @@ export default function MessageItem({
                 setReplyingTo(null);
               }}
               className="p-2 text-slate-400 hover:bg-white/6 hover:text-white"
+              title="Edit message"
             >
               <Pencil size={16} />
             </button>
@@ -120,6 +139,7 @@ export default function MessageItem({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleDeleteMessage(message)}
               className="p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
+              title="Delete message"
             >
               <Trash2 size={16} />
             </button>
@@ -184,6 +204,15 @@ export default function MessageItem({
             {message.edited && !isEditing && (
               <span className="text-xs text-slate-500">edited</span>
             )}
+          </div>
+        )}
+
+        {message.pinned && !isEditing && (
+          <div className={grouped ? "mb-1" : "mt-1 mb-1"}>
+            <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-xs font-bold text-amber-300">
+              <Pin size={12} />
+              Pinned
+            </span>
           </div>
         )}
 

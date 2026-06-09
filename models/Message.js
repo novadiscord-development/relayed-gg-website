@@ -81,6 +81,23 @@ const MessageSchema = new mongoose.Schema(
       trim: true,
       maxlength: 2000,
     },
+
+    pinned: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+
+  pinnedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
+
+  pinnedAt: {
+    type: Date,
+    default: null,
+  },
     
     attachments: [AttachmentSchema],
     reactions: [ReactionSchema],

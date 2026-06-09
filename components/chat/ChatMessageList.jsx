@@ -27,6 +27,7 @@ export default function ChatMessageList({
   cancelEdit,
   setPreviewImage,
   onToggleReaction,
+  onTogglePin,
 }) {
   return (
     <div
@@ -78,6 +79,7 @@ export default function ChatMessageList({
               cancelEdit={cancelEdit}
               setPreviewImage={setPreviewImage}
               onToggleReaction={onToggleReaction}
+              onTogglePin={onTogglePin}
             />
           ))}
 
