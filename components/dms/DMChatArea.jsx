@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Plus, Gift, Smile, Reply, X, Pencil, Trash2 } from "lucide-react";
+import { Plus, Gift, Smile, Reply, X, Pencil, Trash2, CheckLine } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import UserProfilePopout from "@/components/users/UserProfilePopout";
 
@@ -706,7 +706,7 @@ export default function DMChatArea() {
 
                           {message.systemBot && (
                             <span className="rounded bg-cyan-600 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
-                              APP
+                              APP <Check />
                             </span>
                           )}
 
