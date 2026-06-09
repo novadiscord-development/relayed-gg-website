@@ -117,6 +117,41 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
     }
   }
 
+  async function removeFriend() {
+  if (!userId || friendLoading) return;
+
+  if (!confirm("Remove this friend?")) return;
+
+  try {
+    setFriendLoading(true);
+    setFriendMessage("");
+
+    const res = await fetch("/api/friends/remove", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setFriendMessage(data.message || "Could not remove friend");
+      return;
+    }
+
+    setFriendStatus("none");
+    setFriendRequestId(null);
+    setFriendMessage("Friend removed");
+  } catch (error) {
+    console.error("REMOVE_FRIEND_ERROR", error);
+    setFriendMessage("Could not remove friend");
+  } finally {
+    setFriendLoading(false);
+  }
+}
+
   async function acceptFriendRequest() {
     if (!friendRequestId || friendLoading) return;
 
@@ -161,11 +196,12 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
       return (
         <button
           type="button"
-          disabled
-          className="flex items-center justify-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 py-3 text-sm font-bold text-green-300"
+          onClick={removeFriend}
+          disabled={friendLoading}
+          className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <UserCheck size={16} />
-          FRIENDS
+          <UserCheck size={17} />
+          {friendLoading ? "REMOVING..." : "REMOVE FRIEND"}
         </button>
       );
     }

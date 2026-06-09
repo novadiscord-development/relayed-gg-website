@@ -34,8 +34,8 @@ export default async function handler(req, res) {
 
     await Friend.deleteOne({
       $or: [
-        { userId: currentUserId, friendId: targetUserId },
-        { userId: targetUserId, friendId: currentUserId },
+        { userA: currentUserId, userB: targetUserId },
+        { userA: targetUserId, userB: currentUserId },
       ],
     });
 
