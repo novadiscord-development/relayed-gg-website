@@ -384,7 +384,7 @@ export default function UserProfilePage() {
   }
 
   const status = presence?.status || "offline";
-  const customStatus = presence?.customStatus || profile?.customStatus || "";
+  const customStatus = presence?.customStatus || "";
 
   const statusColor =
     status === "online"

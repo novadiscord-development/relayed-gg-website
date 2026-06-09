@@ -75,7 +75,6 @@ export default function UserSettingsModal({ open, onClose }) {
         banner: data.user.banner || "",
         bio: data.user.bio || "",
         pronouns: data.user.pronouns || "",
-        customStatus: data.user.customStatus || "",
         settings: {
           dmNotifications: data.user.settings?.dmNotifications ?? true,
           mentionNotifications: data.user.settings?.mentionNotifications ?? true,
@@ -348,18 +347,6 @@ export default function UserSettingsModal({ open, onClose }) {
                         value={form.pronouns}
                         onChange={(e) => updateField("pronouns", e.target.value)}
                         placeholder="e.g. he/him"
-                        className="mt-2 w-full rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
-                      />
-                    </label>
-
-                    <label className="mt-4 block">
-                      <span className="text-xs font-bold uppercase text-slate-500">
-                        Custom Status
-                      </span>
-                      <input
-                        value={form.customStatus}
-                        onChange={(e) => updateField("customStatus", e.target.value)}
-                        placeholder="Working on Relayed"
                         className="mt-2 w-full rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
                       />
                     </label>
