@@ -91,23 +91,31 @@ export default async function handler(req, res) {
       ],
     });
 
-    if (block) {
-      return res.status(403).json({
-        blocked: true,
-        message: BLOCKED_DM_MESSAGE,
-        relayMessage: {
-          _id: "relay-blocked-message",
-          systemBot: true,
-          authorId: {
-            username: "Relay",
-            avatar: "/botlogo.png",
-            image: "/botlogo.png",
-          },
-          content: BLOCKED_DM_MESSAGE,
-          createdAt: new Date().toISOString(),
-        },
-      });
-    }
+if (block) {
+  const relayMessage = {
+    _id: `relay-blocked-${conversationId}`,
+    systemBot: true,
+    authorId: {
+      username: "Relay",
+      avatar: "/botlogo.png",
+      image: "/botlogo.png",
+    },
+    content: BLOCKED_DM_MESSAGE,
+    createdAt: new Date().toISOString(),
+  };
+
+  await pusherServer.trigger(
+    `dm-${conversationId}`,
+    "dm:message:new",
+    relayMessage
+  );
+
+  return res.status(403).json({
+    blocked: true,
+    message: BLOCKED_DM_MESSAGE,
+    relayMessage,
+  });
+}
 
     let replyToMessage = null;
 
