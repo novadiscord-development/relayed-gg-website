@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+const { update } = useSession();
 import Image from "next/image";
 import {
   Bell,
@@ -106,35 +108,45 @@ export default function UserSettingsModal({ open, onClose }) {
     }));
   }
 
-  async function saveSettings() {
-    try {
-      setSaving(true);
-      setMessage("");
+async function saveSettings() {
+  try {
+    setSaving(true);
+    setMessage("");
 
-      const res = await fetch("/api/users/update-settings", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      });
+    const res = await fetch("/api/users/update-settings", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(form),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) {
-        setMessage(data.message || "Could not save settings");
-        return;
-      }
-
-      setUser(data.user);
-      setMessage("Settings saved");
-    } catch (error) {
-      console.error("SAVE_USER_SETTINGS_ERROR", error);
-      setMessage("Could not save settings");
-    } finally {
-      setSaving(false);
+    if (!res.ok) {
+      setMessage(data.message || "Could not save settings");
+      return;
     }
+
+    setUser(data.user);
+
+    // Refresh NextAuth session
+    await update({
+      user: {
+        username: data.user.username,
+        image: data.user.avatar || "/logo.png",
+        badges: data.user.badges || [],
+      },
+    });
+
+    setMessage("Settings saved");
+  } catch (error) {
+    console.error("SAVE_USER_SETTINGS_ERROR", error);
+    setMessage("Could not save settings");
+  } finally {
+    setSaving(false);
   }
+}
 
   function Toggle({ checked, onChange }) {
     return (

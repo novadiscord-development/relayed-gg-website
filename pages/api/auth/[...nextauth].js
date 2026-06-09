@@ -63,32 +63,45 @@ export const authOptions = {
     }),
   ],
 
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.username = user.username;
-        token.isStaff = user.isStaff;
-        token.isAdmin = user.isAdmin;
-        token.badges = user.badges || [];
-        token.picture = user.image;
+callbacks: {
+  async jwt({ token, user, trigger, session }) {
+    if (user) {
+      token.id = user.id;
+      token.username = user.username;
+      token.isStaff = user.isStaff;
+      token.isAdmin = user.isAdmin;
+      token.badges = user.badges || [];
+      token.picture = user.image;
+    }
+
+    if (trigger === "update") {
+      if (session?.user?.username) {
+        token.username = session.user.username;
       }
 
-      return token;
-    },
+      if (session?.user?.image) {
+        token.picture = session.user.image;
+      }
 
-    async session({ session, token }) {
-      session.user.id = token.id;
-      session.user.username = token.username;
-      session.user.image = token.picture || "/logo.png";
-      session.user.isStaff = token.isStaff || false;
-      session.user.isAdmin = token.isAdmin || false;
-      session.user.badges = token.badges || [];
+      if (session?.user?.badges) {
+        token.badges = session.user.badges;
+      }
+    }
 
-      return session;
-    },
+    return token;
   },
 
+  async session({ session, token }) {
+    session.user.id = token.id;
+    session.user.username = token.username;
+    session.user.image = token.picture || "/logo.png";
+    session.user.isStaff = token.isStaff || false;
+    session.user.isAdmin = token.isAdmin || false;
+    session.user.badges = token.badges || [];
+
+    return session;
+  },
+},
   debug: process.env.NODE_ENV === "development",
   secret: process.env.NEXTAUTH_SECRET,
 };
