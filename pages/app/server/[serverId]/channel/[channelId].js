@@ -1,8 +1,11 @@
+"use client";
+
 import ServerBar from "@/components/app/ServerBar";
 import ChannelSidebar from "@/components/app/ChannelSidebar";
 import ChatHeader from "@/components/app/ChatHeader";
 import ChatArea from "@/components/app/ChatArea";
 import MemberSidebar from "@/components/app/MemberSidebar";
+
 
 export default function ServerChannelPage() {
   return (

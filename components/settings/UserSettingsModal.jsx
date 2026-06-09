@@ -1,4 +1,4 @@
-"use client";
+
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -22,6 +22,7 @@ const tabs = [
 ];
 
 export default function UserSettingsModal({ open, onClose }) {
+    const { update } = useSession();
   const [activeTab, setActiveTab] = useState("account");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,8 +114,6 @@ async function saveSettings() {
   try {
     setSaving(true);
     setMessage("");
-
-    const { update } = useSession();
 
     const res = await fetch("/api/users/update-settings", {
       method: "PATCH",
