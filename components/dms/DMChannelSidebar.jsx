@@ -299,6 +299,7 @@ export default function DMChannelSidebar() {
           )}
         </div>
       </div>
+      <UserPanel />
     </aside>
   );
 }
