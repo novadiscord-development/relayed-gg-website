@@ -1,4 +1,3 @@
-"use client";
 
 import ServerBar from "@/components/app/ServerBar";
 import ChannelSidebar from "@/components/app/ChannelSidebar";
