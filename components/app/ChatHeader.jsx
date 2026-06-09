@@ -164,7 +164,7 @@ export default function ChatHeader() {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-white/10 bg-[#080b18]/80 px-5 backdrop-blur-xl">
+    <header className="relative z-[9999] flex h-14 items-center justify-between border-b border-white/10 bg-[#080b18] px-5">
       <div className="flex min-w-0 items-center gap-3">
         <Hash size={24} className="text-slate-400" />
 
@@ -194,7 +194,7 @@ export default function ChatHeader() {
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 top-8 z-9999 w-96 overflow-hidden rounded-2xl border border-[#2b2d31] bg-[#1e1f22] shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
+            <div className="absolute right-0 top-8 z-[9999] w-96 overflow-hidden rounded-2xl border border-[#2b2d31] bg-[#1e1f22] shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
               <div className="flex items-center justify-between border-b border-[#2b2d31] bg-[#111214] px-4 py-3">
                 <div>
                   <h2 className="text-sm font-black text-white">
