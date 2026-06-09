@@ -704,6 +704,12 @@ export default function DMChatArea() {
                             {author?.username || "Unknown User"}
                           </button>
 
+                          {message.systemBot && (
+                            <span className="rounded bg-cyan-600 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+                              APP
+                            </span>
+                          )}
+
                           {author?.isStaff && (
                             <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-black">
                               STAFF
@@ -715,6 +721,8 @@ export default function DMChatArea() {
                               ADMIN
                             </span>
                           )}
+
+                          
 
                           <span className="text-xs text-slate-500">
                             {formatTime(message.createdAt)}
