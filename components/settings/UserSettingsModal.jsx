@@ -1,7 +1,4 @@
-
-
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   Bell,
@@ -11,6 +8,7 @@ import {
   Shield,
   X,
   Save,
+  Upload,
 } from "lucide-react";
 
 const tabs = [
@@ -22,10 +20,14 @@ const tabs = [
 ];
 
 export default function UserSettingsModal({ open, onClose }) {
-    const { update } = useSession();
+  const avatarInputRef = useRef(null);
+  const bannerInputRef = useRef(null);
+
   const [activeTab, setActiveTab] = useState("account");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState("");
@@ -94,61 +96,86 @@ export default function UserSettingsModal({ open, onClose }) {
   }
 
   function updateField(key, value) {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   function updateSetting(key, value) {
     setForm((prev) => ({
       ...prev,
-      settings: {
-        ...prev.settings,
-        [key]: value,
-      },
+      settings: { ...prev.settings, [key]: value },
     }));
   }
 
-async function saveSettings() {
-  try {
-    setSaving(true);
-    setMessage("");
+  async function uploadImage(file, field) {
+    if (!file) return;
 
-    const res = await fetch("/api/users/update-settings", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(form),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setMessage(data.message || "Could not save settings");
+    if (!file.type.startsWith("image/")) {
+      setMessage("Please upload an image file");
       return;
     }
 
-    setUser(data.user);
+    if (file.size > 8 * 1024 * 1024) {
+      setMessage("Image must be under 8MB");
+      return;
+    }
 
-    // Refresh NextAuth session
-    await update({
-      user: {
-        username: data.user.username,
-        image: data.user.avatar || "/logo.png",
-        badges: data.user.badges || [],
-      },
-    });
+    try {
+      field === "avatar" ? setUploadingAvatar(true) : setUploadingBanner(true);
+      setMessage("");
 
-    setMessage("Settings saved");
-  } catch (error) {
-    console.error("SAVE_USER_SETTINGS_ERROR", error);
-    setMessage("Could not save settings");
-  } finally {
-    setSaving(false);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload/chat-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.message || "Image upload failed");
+        return;
+      }
+
+      updateField(field, data.attachment?.url || data.url || "");
+      setMessage(`${field === "avatar" ? "Avatar" : "Banner"} uploaded`);
+    } catch (error) {
+      console.error("UPLOAD_USER_IMAGE_ERROR", error);
+      setMessage("Image upload failed");
+    } finally {
+      setUploadingAvatar(false);
+      setUploadingBanner(false);
+    }
   }
-}
+
+  async function saveSettings() {
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const res = await fetch("/api/users/update-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.message || "Could not save settings");
+        return;
+      }
+
+      setUser(data.user);
+      setMessage("Settings saved");
+    } catch (error) {
+      console.error("SAVE_USER_SETTINGS_ERROR", error);
+      setMessage("Could not save settings");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function Toggle({ checked, onChange }) {
     return (
@@ -173,12 +200,7 @@ async function saveSettings() {
       <aside className="w-72 shrink-0 border-r border-white/10 bg-[#111214] p-4">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-black">User Settings</h2>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-          >
+          <button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/[0.06] hover:text-white">
             <X size={18} />
           </button>
         </div>
@@ -186,7 +208,6 @@ async function saveSettings() {
         <div className="space-y-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
-
             return (
               <button
                 key={tab.id}
@@ -217,16 +238,13 @@ async function saveSettings() {
                   <h1 className="text-3xl font-black">
                     {tabs.find((tab) => tab.id === activeTab)?.label}
                   </h1>
-
-                  {message && (
-                    <p className="mt-2 text-sm text-violet-300">{message}</p>
-                  )}
+                  {message && <p className="mt-2 text-sm text-violet-300">{message}</p>}
                 </div>
 
                 <button
                   type="button"
                   onClick={saveSettings}
-                  disabled={saving}
+                  disabled={saving || uploadingAvatar || uploadingBanner}
                   className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Save size={17} />
@@ -235,131 +253,132 @@ async function saveSettings() {
               </div>
 
               {activeTab === "account" && (
-                <div className="space-y-5">
-                  <div className="rounded-2xl border border-[#2b2d31] bg-[#111214] p-5">
-                    <h2 className="mb-4 text-sm font-black uppercase text-slate-500">
-                      Account
-                    </h2>
+                <div className="rounded-2xl border border-[#2b2d31] bg-[#111214] p-5">
+                  <h2 className="mb-4 text-sm font-black uppercase text-slate-500">
+                    Account
+                  </h2>
 
-                    <div className="flex items-center gap-4">
-                      <Image
-                        src={form.avatar || "/logo.png"}
-                        alt={form.username || "User"}
-                        width={72}
-                        height={72}
-                        className="h-[72px] w-[72px] rounded-full object-cover"
-                      />
+                  <div className="flex items-center gap-4">
+                    <Image
+                      src={form.avatar || "/logo.png"}
+                      alt={form.username || "User"}
+                      width={72}
+                      height={72}
+                      className="h-[72px] w-[72px] rounded-full object-cover"
+                    />
 
-                      <div className="min-w-0">
-                        <p className="font-black">{user?.email}</p>
-                        <p className="text-sm text-slate-500">
-                          Account email cannot be changed here yet.
-                        </p>
-                      </div>
+                    <div className="min-w-0">
+                      <p className="font-black">{user?.email}</p>
+                      <p className="text-sm text-slate-500">
+                        Account email cannot be changed here yet.
+                      </p>
                     </div>
+                  </div>
 
-                    <label className="mt-5 block">
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => uploadImage(e.target.files?.[0], "avatar")}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="mt-4 flex items-center gap-2 rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-[#2b2d31] hover:text-white disabled:opacity-60"
+                  >
+                    <Upload size={16} />
+                    {uploadingAvatar ? "Uploading avatar..." : "Upload Avatar"}
+                  </button>
+
+                  <label className="mt-5 block">
+                    <span className="text-xs font-bold uppercase text-slate-500">
+                      Username
+                    </span>
+                    <input
+                      value={form.username}
+                      onChange={(e) => updateField("username", e.target.value)}
+                      className="mt-2 w-full rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {activeTab === "profile" && (
+                <div className="overflow-hidden rounded-2xl border border-[#2b2d31] bg-[#111214]">
+                  <div
+                    className="h-36 bg-gradient-to-br from-violet-600 to-blue-600"
+                    style={
+                      form.banner
+                        ? {
+                            backgroundImage: `url(${form.banner})`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }
+                        : undefined
+                    }
+                  />
+
+                  <div className="p-5">
+                    <input
+                      ref={bannerInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => uploadImage(e.target.files?.[0], "banner")}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => bannerInputRef.current?.click()}
+                      disabled={uploadingBanner}
+                      className="flex items-center gap-2 rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-[#2b2d31] hover:text-white disabled:opacity-60"
+                    >
+                      <Upload size={16} />
+                      {uploadingBanner ? "Uploading banner..." : "Upload Banner"}
+                    </button>
+
+                    <label className="mt-4 block">
                       <span className="text-xs font-bold uppercase text-slate-500">
-                        Username
+                        Pronouns
                       </span>
                       <input
-                        value={form.username}
-                        onChange={(e) =>
-                          updateField("username", e.target.value)
-                        }
+                        value={form.pronouns}
+                        onChange={(e) => updateField("pronouns", e.target.value)}
+                        placeholder="e.g. he/him"
                         className="mt-2 w-full rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
                       />
                     </label>
 
                     <label className="mt-4 block">
                       <span className="text-xs font-bold uppercase text-slate-500">
-                        Avatar URL
+                        Custom Status
                       </span>
                       <input
-                        value={form.avatar}
-                        onChange={(e) => updateField("avatar", e.target.value)}
+                        value={form.customStatus}
+                        onChange={(e) => updateField("customStatus", e.target.value)}
+                        placeholder="Working on Relayed"
                         className="mt-2 w-full rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
                       />
                     </label>
-                  </div>
-                </div>
-              )}
 
-              {activeTab === "profile" && (
-                <div className="space-y-5">
-                  <div className="overflow-hidden rounded-2xl border border-[#2b2d31] bg-[#111214]">
-                    <div
-                      className="h-36 bg-gradient-to-br from-violet-600 to-blue-600"
-                      style={
-                        form.banner
-                          ? {
-                              backgroundImage: `url(${form.banner})`,
-                              backgroundSize: "cover",
-                              backgroundPosition: "center",
-                            }
-                          : undefined
-                      }
-                    />
-
-                    <div className="p-5">
-                      <label className="block">
-                        <span className="text-xs font-bold uppercase text-slate-500">
-                          Banner URL
-                        </span>
-                        <input
-                          value={form.banner}
-                          onChange={(e) =>
-                            updateField("banner", e.target.value)
-                          }
-                          className="mt-2 w-full rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
-                        />
-                      </label>
-
-                      <label className="mt-4 block">
-                        <span className="text-xs font-bold uppercase text-slate-500">
-                          Pronouns
-                        </span>
-                        <input
-                          value={form.pronouns}
-                          onChange={(e) =>
-                            updateField("pronouns", e.target.value)
-                          }
-                          placeholder="e.g. he/him"
-                          className="mt-2 w-full rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
-                        />
-                      </label>
-
-                      <label className="mt-4 block">
-                        <span className="text-xs font-bold uppercase text-slate-500">
-                          Custom Status
-                        </span>
-                        <input
-                          value={form.customStatus}
-                          onChange={(e) =>
-                            updateField("customStatus", e.target.value)
-                          }
-                          placeholder="Working on Relayed"
-                          className="mt-2 w-full rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
-                        />
-                      </label>
-
-                      <label className="mt-4 block">
-                        <span className="text-xs font-bold uppercase text-slate-500">
-                          About Me
-                        </span>
-                        <textarea
-                          value={form.bio}
-                          onChange={(e) => updateField("bio", e.target.value)}
-                          maxLength={500}
-                          rows={5}
-                          className="mt-2 w-full resize-none rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
-                        />
-
-                        <p className="mt-1 text-right text-xs text-slate-600">
-                          {form.bio.length}/500
-                        </p>
-                      </label>
-                    </div>
+                    <label className="mt-4 block">
+                      <span className="text-xs font-bold uppercase text-slate-500">
+                        About Me
+                      </span>
+                      <textarea
+                        value={form.bio}
+                        onChange={(e) => updateField("bio", e.target.value)}
+                        maxLength={500}
+                        rows={5}
+                        className="mt-2 w-full resize-none rounded-xl border border-[#2b2d31] bg-[#1e1f22] px-4 py-3 text-sm outline-none focus:border-violet-500"
+                      />
+                      <p className="mt-1 text-right text-xs text-slate-600">
+                        {form.bio.length}/500
+                      </p>
+                    </label>
                   </div>
                 </div>
               )}
@@ -376,10 +395,7 @@ async function saveSettings() {
                     ["friendRequestNotifications", "Friend request notifications"],
                     ["soundEffects", "Sound effects"],
                   ].map(([key, label]) => (
-                    <div
-                      key={key}
-                      className="flex items-center justify-between border-b border-[#2b2d31] py-4 last:border-b-0"
-                    >
+                    <div key={key} className="flex items-center justify-between border-b border-[#2b2d31] py-4 last:border-b-0">
                       <p className="font-bold">{label}</p>
                       <Toggle
                         checked={form.settings[key]}
@@ -400,7 +416,6 @@ async function saveSettings() {
                     <span className="text-xs font-bold uppercase text-slate-500">
                       Who can send friend requests?
                     </span>
-
                     <select
                       value={form.settings.allowFriendRequests}
                       onChange={(e) =>
@@ -437,7 +452,6 @@ async function saveSettings() {
                   <h2 className="mb-2 text-sm font-black uppercase text-slate-500">
                     Blocked Users
                   </h2>
-
                   <p className="text-sm text-slate-400">
                     Blocked user management will connect here next.
                   </p>
