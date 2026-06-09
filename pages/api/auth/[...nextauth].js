@@ -80,7 +80,7 @@ callbacks: {
       }
 
       if (session?.user?.image) {
-        token.picture = session.user.image;
+        token.avatar = session.user.image;
       }
 
       if (session?.user?.badges) {
@@ -94,7 +94,7 @@ callbacks: {
   async session({ session, token }) {
     session.user.id = token.id;
     session.user.username = token.username;
-    session.user.image = token.picture || "/logo.png";
+    session.user.image = token.avatar || "/logo.png";
     session.user.isStaff = token.isStaff || false;
     session.user.isAdmin = token.isAdmin || false;
     session.user.badges = token.badges || [];
