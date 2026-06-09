@@ -177,12 +177,12 @@ export default function ChatHeader() {
         </p>
       </div>
 
-      <div className="flex items-center gap-4 text-slate-400">
-        <div className="relative">
+      <div className="flex h-full items-center gap-4 text-slate-400">
+        <div className="relative flex items-center">
           <button
             type="button"
             onClick={() => setNotificationsOpen((prev) => !prev)}
-            className="relative transition hover:text-white"
+            className="relative flex h-5 w-5 items-center justify-center transition hover:text-white"
           >
             <Bell size={20} />
 
@@ -277,8 +277,19 @@ export default function ChatHeader() {
           )}
         </div>
 
-        <Pin size={20} className="hover:text-white" />
-        <Users size={20} className="hover:text-white" />
+        <button
+          type="button"
+          className="flex h-5 w-5 items-center justify-center hover:text-white"
+        >
+          <Pin size={20} />
+        </button>
+
+        <button
+          type="button"
+          className="flex h-5 w-5 items-center justify-center hover:text-white"
+        >
+          <Users size={20} />
+        </button>
 
         <div className="relative hidden items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5 lg:flex">
           <input
