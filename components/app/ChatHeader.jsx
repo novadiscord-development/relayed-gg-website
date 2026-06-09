@@ -188,7 +188,7 @@ export default function ChatHeader() {
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 top-8 z-50 w-96 overflow-hidden rounded-2xl border border-white/10 bg-[#111827] shadow-2xl">
+            <div className="absolute right-0 top-8 z-50 w-96 overflow-hidden rounded-2xl border border-white/5 bg-[#111827] shadow-2xl">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                 <div>
                   <h2 className="text-sm font-black text-white">
