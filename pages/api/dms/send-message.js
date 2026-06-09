@@ -5,7 +5,11 @@ import connectDB from "@/lib/mongodb";
 import Conversation from "@/models/Conversation";
 import DMMessage from "@/models/DMMessage";
 import DMNotification from "@/models/DMNotification";
+import BlockedUser from "@/models/BlockedUser";
 import { pusherServer } from "@/lib/pusher";
+
+const BLOCKED_DM_MESSAGE =
+  "This conversation is unavailable because one of you has blocked the other.";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -68,6 +72,41 @@ export default async function handler(req, res) {
 
     if (!isParticipant) {
       return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const otherParticipant = conversation.participants.find(
+      (participant) => participant.toString() !== session.user.id.toString()
+    );
+
+    const block = await BlockedUser.findOne({
+      $or: [
+        {
+          blockerId: session.user.id,
+          blockedId: otherParticipant,
+        },
+        {
+          blockerId: otherParticipant,
+          blockedId: session.user.id,
+        },
+      ],
+    });
+
+    if (block) {
+      return res.status(403).json({
+        blocked: true,
+        message: BLOCKED_DM_MESSAGE,
+        relayMessage: {
+          _id: "relay-blocked-message",
+          systemBot: true,
+          authorId: {
+            username: "Relay",
+            avatar: "/botlogo.png",
+            image: "/botlogo.png",
+          },
+          content: BLOCKED_DM_MESSAGE,
+          createdAt: new Date().toISOString(),
+        },
+      });
     }
 
     let replyToMessage = null;
