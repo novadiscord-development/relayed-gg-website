@@ -36,10 +36,10 @@ export default async function handler(req, res) {
     }
 
     const friendship = await Friend.findOne({
-      $or: [
-        { userId: currentUserId, friendId: targetUserId },
-        { userId: targetUserId, friendId: currentUserId },
-      ],
+    $or: [
+        { userA: currentUserId, userB: targetUserId },
+        { userA: targetUserId, userB: currentUserId },
+    ],
     });
 
     if (friendship) {
