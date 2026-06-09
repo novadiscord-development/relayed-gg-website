@@ -5,7 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Conversation from "@/models/Conversation";
 import DMMessage from "@/models/DMMessage";
 import DMNotification from "@/models/DMNotification";
-import BlockedUser from "@/models/BlockedUser";
+import BlockedUser from "@/models/blockedUser";
 import { pusherServer } from "@/lib/pusher";
 
 const BLOCKED_DM_MESSAGE =
