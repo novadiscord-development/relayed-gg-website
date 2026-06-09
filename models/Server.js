@@ -19,6 +19,17 @@ const ServerSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
+    banner: {
+      type: String,
+      default: "",
+    },
+
+    description: {
+      type: String,
+      maxlength: 500,
+      default: "",
+    },
   },
   { timestamps: true }
 );

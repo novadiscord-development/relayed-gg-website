@@ -14,6 +14,8 @@ import {
   UserMinus,
   ShieldBan,
   Camera,
+  Trash2,
+  ArrowRightLeft,
 } from "lucide-react";
 
 const tabs = [
@@ -31,9 +33,12 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
   const [name, setName] = useState(server?.name || "");
   const [icon, setIcon] = useState(server?.icon || "");
+  const [banner, setBanner] = useState(server?.banner || "");
   const [description, setDescription] = useState("");
   const [uploadingIcon, setUploadingIcon] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [members, setMembers] = useState([]);
   const [currentMember, setCurrentMember] = useState(null);
@@ -47,11 +52,16 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   useEffect(() => {
     setName(server?.name || "");
     setIcon(server?.icon || "");
+    setBanner(server?.banner || "");
     setDescription(server?.description || "");
   }, [server]);
 
   useEffect(() => {
-    if (activeTab === "members" && server?._id) loadMembers();
+    if (!server?._id) return;
+    loadMembers();
+  }, [server?._id]);
+
+  useEffect(() => {
     if (activeTab === "bans" && server?._id) loadBans();
   }, [activeTab, server?._id]);
 
@@ -79,12 +89,11 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
     setBansLoading(false);
   }
 
-  async function handleIconUpload(event) {
-    const file = event.target.files?.[0];
+  async function uploadImage(file, type) {
     if (!file) return;
 
     try {
-      setUploadingIcon(true);
+      type === "icon" ? setUploadingIcon(true) : setUploadingBanner(true);
 
       const formData = new FormData();
       formData.append("file", file);
@@ -98,13 +107,24 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
       if (!res.ok) throw new Error(data.message || "Image upload failed");
 
-      setIcon(data.url);
+      if (type === "icon") setIcon(data.url);
+      if (type === "banner") setBanner(data.url);
     } catch (error) {
-      console.error("ICON_UPLOAD_ERROR", error);
+      console.error("SERVER_IMAGE_UPLOAD_ERROR", error);
     } finally {
       setUploadingIcon(false);
-      event.target.value = "";
+      setUploadingBanner(false);
     }
+  }
+
+  async function handleIconUpload(event) {
+    await uploadImage(event.target.files?.[0], "icon");
+    event.target.value = "";
+  }
+
+  async function handleBannerUpload(event) {
+    await uploadImage(event.target.files?.[0], "banner");
+    event.target.value = "";
   }
 
   async function saveServer() {
@@ -119,6 +139,7 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
         serverId: server._id,
         name,
         icon,
+        banner,
         description,
       }),
     });
@@ -149,6 +170,58 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
     );
 
     setOpenMemberMenu(null);
+  }
+
+  async function transferOwnership(member) {
+    const username = member.userId?.username || "this member";
+
+    const confirmed = confirm(
+      `Transfer ownership of ${server?.name} to ${username}? You will lose owner permissions.`
+    );
+
+    if (!confirmed) return;
+
+    const res = await fetch("/api/servers/transfer-ownership", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serverId: server._id,
+        memberId: member._id,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) return;
+
+    setMembers(data.members || []);
+    setCurrentMember(data.currentMember || null);
+    setOpenMemberMenu(null);
+    onUpdated(data.server);
+  }
+
+  async function deleteServer() {
+    const typed = prompt(
+      `Type "${server?.name}" to permanently delete this server.`
+    );
+
+    if (typed !== server?.name) return;
+
+    setDeleting(true);
+
+    const res = await fetch("/api/servers/delete", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serverId: server._id,
+      }),
+    });
+
+    setDeleting(false);
+
+    if (!res.ok) return;
+
+    onClose?.();
+    window.location.href = "/app";
   }
 
   async function kickMember(member) {
@@ -213,6 +286,7 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   );
 
   const canManageMembers = currentMember?.role === "owner";
+  const isOwner = currentMember?.role === "owner";
 
   function getInitials(value) {
     return value
@@ -229,6 +303,51 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
       return (
         <div>
           <h2 className="text-xl font-black text-white">Server Overview</h2>
+
+          <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+            <div
+              className="relative h-44 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500"
+              style={
+                banner
+                  ? {
+                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(11,15,29,0.45)), url(${banner})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }
+                  : undefined
+              }
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#111214]/70" />
+
+              <label
+                htmlFor="server-banner-upload"
+                className="absolute right-4 top-4 flex cursor-pointer items-center gap-2 rounded-lg bg-black/50 px-3 py-2 text-xs font-bold text-white backdrop-blur hover:bg-black/70"
+              >
+                <Camera size={15} />
+                {uploadingBanner ? "Uploading..." : "Upload Banner"}
+              </label>
+            </div>
+
+            <input
+              id="server-banner-upload"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleBannerUpload}
+            />
+
+            <div className="p-5">
+              {banner && (
+                <button
+                  type="button"
+                  onClick={() => setBanner("")}
+                  className="text-xs font-semibold text-slate-400 hover:text-white"
+                >
+                  Remove banner
+                </button>
+              )}
+            </div>
+          </div>
 
           <div className="mt-6 border-b border-white/10 pb-8">
             <div className="grid gap-8 md:grid-cols-[180px_1fr]">
@@ -282,7 +401,8 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
               <div>
                 <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                  We recommend an image of at least 512x512 for the server.
+                  We recommend an image of at least 512x512 for the icon and
+                  960x540 for the banner.
                 </p>
 
                 <div className="mt-5">
@@ -320,10 +440,42 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
             </div>
           </div>
 
+          {isOwner && (
+            <div className="mt-10 rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+              <h3 className="text-sm font-black uppercase tracking-wide text-red-300">
+                Danger Zone
+              </h3>
+
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-red-500/20 bg-black/20 p-4">
+                <div>
+                  <p className="font-bold text-white">Delete Server</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Permanently delete this server and all related data.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={deleteServer}
+                  disabled={deleting}
+                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-500 disabled:opacity-50"
+                >
+                  <Trash2 size={16} />
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="mt-8 flex justify-end">
             <button
               onClick={saveServer}
-              disabled={saving || !name.trim() || uploadingIcon}
+              disabled={
+                saving ||
+                !name.trim() ||
+                uploadingIcon ||
+                uploadingBanner
+              }
               className="flex items-center gap-2 rounded bg-violet-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-50"
             >
               <Save size={16} />
@@ -364,8 +516,8 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
             ) : (
               filteredMembers.map((member) => {
                 const user = member.userId;
-                const isOwner = member.role === "owner";
-                const canManageThisMember = canManageMembers && !isOwner;
+                const memberIsOwner = member.role === "owner";
+                const canManageThisMember = canManageMembers && !memberIsOwner;
 
                 return (
                   <div
@@ -400,7 +552,7 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
                       </div>
                     </div>
 
-                    {isOwner ? (
+                    {memberIsOwner ? (
                       <span className="flex items-center gap-1 rounded-lg bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-300">
                         <Crown size={14} />
                         Owner
@@ -429,7 +581,7 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
                           onClick={() => setOpenMemberMenu(null)}
                         />
 
-                        <div className="absolute right-4 top-14 z-[9999] w-52 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
+                        <div className="absolute right-4 top-14 z-[9999] w-56 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
                           <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase text-slate-500">
                             Change Role
                           </p>
@@ -451,8 +603,16 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
                           <div className="my-1 h-px bg-white/10" />
 
                           <button
+                            onClick={() => transferOwnership(member)}
+                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-yellow-300 hover:bg-yellow-500/10"
+                          >
+                            Transfer Ownership
+                            <ArrowRightLeft size={15} />
+                          </button>
+
+                          <button
                             onClick={() => kickMember(member)}
-                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                            className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
                           >
                             Kick Member
                             <UserMinus size={15} />
