@@ -11,6 +11,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
+import UserPanel from "../app/UserPanel";
 
 export default function DMChannelSidebar() {
   const router = useRouter();
