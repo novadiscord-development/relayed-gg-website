@@ -32,28 +32,23 @@ export const authOptions = {
         const login = credentials?.login?.trim();
         const password = credentials?.password;
 
-        if (!login || !password) {
-          return null;
-        }
+        if (!login || !password) return null;
 
         const user = await User.findOne({
           $or: [{ email: login.toLowerCase() }, { username: login }],
         });
 
-        if (!user) {
-          return null;
-        }
+        if (!user) return null;
 
         const passwordMatch = await bcrypt.compare(password, user.password);
 
-        if (!passwordMatch) {
-          return null;
-        }
+        if (!passwordMatch) return null;
 
         return {
           id: user._id.toString(),
           username: user.username,
           email: user.email,
+          avatar: user.avatar || "/logo.png",
           image: user.avatar || "/logo.png",
           isStaff: user.isStaff || false,
           isAdmin: user.isAdmin || false,
@@ -63,45 +58,49 @@ export const authOptions = {
     }),
   ],
 
-callbacks: {
-  async jwt({ token, user, trigger, session }) {
-    if (user) {
-      token.id = user.id;
-      token.username = user.username;
-      token.isStaff = user.isStaff;
-      token.isAdmin = user.isAdmin;
-      token.badges = user.badges || [];
-      token.avatar = user.image;
-    }
-
-    if (trigger === "update") {
-      if (session?.user?.username) {
-        token.username = session.user.username;
+  callbacks: {
+    async jwt({ token, user, trigger, session }) {
+      if (user) {
+        token.id = user.id;
+        token.username = user.username;
+        token.email = user.email;
+        token.avatar = user.avatar || user.image || "/logo.png";
+        token.isStaff = user.isStaff || false;
+        token.isAdmin = user.isAdmin || false;
+        token.badges = user.badges || [];
       }
 
-      if (session?.user?.image) {
-        token.avatar = session.user.image;
+      if (trigger === "update") {
+        if (session?.user?.username) {
+          token.username = session.user.username;
+        }
+
+        if (session?.user?.avatar || session?.user?.image) {
+          token.avatar = session.user.avatar || session.user.image;
+        }
+
+        if (session?.user?.badges) {
+          token.badges = session.user.badges;
+        }
       }
 
-      if (session?.user?.badges) {
-        token.badges = session.user.badges;
-      }
-    }
+      return token;
+    },
 
-    return token;
+    async session({ session, token }) {
+      session.user.id = token.id;
+      session.user.username = token.username;
+      session.user.email = token.email;
+      session.user.avatar = token.avatar || "/logo.png";
+      session.user.image = token.avatar || "/logo.png";
+      session.user.isStaff = token.isStaff || false;
+      session.user.isAdmin = token.isAdmin || false;
+      session.user.badges = token.badges || [];
+
+      return session;
+    },
   },
 
-  async session({ session, token }) {
-    session.user.id = token.id;
-    session.user.username = token.username;
-    session.user.image = token.avatar || "/logo.png";
-    session.user.isStaff = token.isStaff || false;
-    session.user.isAdmin = token.isAdmin || false;
-    session.user.badges = token.badges || [];
-
-    return session;
-  },
-},
   debug: process.env.NODE_ENV === "development",
   secret: process.env.NEXTAUTH_SECRET,
 };
