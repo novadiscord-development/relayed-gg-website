@@ -1,6 +1,3 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "../auth/[...nextauth]";
-
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 import Presence from "@/models/Presence";
@@ -11,12 +8,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const session = await getServerSession(req, res, authOptions);
-
-    if (!session) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
     await connectDB();
 
     const { userId } = req.query;
@@ -26,23 +17,18 @@ export default async function handler(req, res) {
     }
 
     const user = await User.findById(userId).select(
-      "username name avatar image bio isStaff isAdmin badges createdAt"
+      "username avatar image banner bio pronouns customStatus isStaff isAdmin badges createdAt"
     );
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const presence = await Presence.findOne({ userId }).select(
-      "status customStatus lastSeenAt lastActivityAt"
-    );
+    const presence = await Presence.findOne({ userId }).lean();
 
     return res.status(200).json({
       user,
-      presence: presence || {
-        status: "offline",
-        customStatus: "",
-      },
+      presence: presence || null,
     });
   } catch (error) {
     console.error("GET_USER_PROFILE_ERROR", error);

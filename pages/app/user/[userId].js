@@ -10,6 +10,7 @@ import {
   Check,
   UserCheck,
   Ban,
+  Quote,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -383,7 +384,7 @@ export default function UserProfilePage() {
   }
 
   const status = presence?.status || "offline";
-  const customStatus = presence?.customStatus || "";
+  const customStatus = presence?.customStatus || profile?.customStatus || "";
 
   const statusColor =
     status === "online"
@@ -423,7 +424,20 @@ export default function UserProfilePage() {
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="overflow-hidden rounded-3xl border border-white/10 bg-[#0b0f1d]/90 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl"
             >
-              <div className="h-44 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500" />
+              <div
+                className="relative h-44 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500"
+                style={
+                  profile.banner
+                    ? {
+                        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.05), rgba(11,15,29,0.35)), url(${profile.banner})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }
+                    : undefined
+                }
+              >
+                <div className="absolute inset-0 bg-black/10" />
+              </div>
 
               <div className="px-8 pb-8">
                 <div className="-mt-16 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
@@ -443,9 +457,17 @@ export default function UserProfilePage() {
                     </div>
 
                     <div className="pb-2">
-                      <h1 className="text-4xl font-black">
-                        {profile.username || profile.name || "Unknown User"}
-                      </h1>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h1 className="text-4xl font-black">
+                          {profile.username || profile.name || "Unknown User"}
+                        </h1>
+
+                        {profile.pronouns && (
+                          <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-slate-300">
+                            {profile.pronouns}
+                          </span>
+                        )}
+                      </div>
 
                       <p className="mt-2 text-slate-400">
                         {customStatus || statusLabel}
@@ -482,10 +504,23 @@ export default function UserProfilePage() {
                         About Me
                       </h2>
 
-                      <p className="mt-3 text-sm leading-6 text-slate-300">
+                      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-300">
                         {profile.bio || "This user has not added a bio yet."}
                       </p>
                     </div>
+
+                    {profile.customStatus && (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                        <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
+                          Custom Status
+                        </h2>
+
+                        <p className="mt-3 flex items-center gap-2 text-sm leading-6 text-slate-300">
+                          <Quote size={16} className="text-violet-400" />
+                          {profile.customStatus}
+                        </p>
+                      </div>
+                    )}
 
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                       <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
