@@ -30,6 +30,29 @@ const UserSchema = new mongoose.Schema(
       default: "/logo.png",
     },
 
+    banner: {
+      type: String,
+      default: "",
+    },
+
+    bio: {
+      type: String,
+      maxlength: 500,
+      default: "",
+    },
+
+    pronouns: {
+      type: String,
+      maxlength: 40,
+      default: "",
+    },
+
+    customStatus: {
+      type: String,
+      maxlength: 100,
+      default: "",
+    },
+
     isStaff: {
       type: Boolean,
       default: false,
@@ -43,6 +66,44 @@ const UserSchema = new mongoose.Schema(
     badges: {
       type: [String],
       default: [],
+    },
+
+    settings: {
+      dmNotifications: {
+        type: Boolean,
+        default: true,
+      },
+
+      mentionNotifications: {
+        type: Boolean,
+        default: true,
+      },
+
+      friendRequestNotifications: {
+        type: Boolean,
+        default: true,
+      },
+
+      soundEffects: {
+        type: Boolean,
+        default: true,
+      },
+
+      allowFriendRequests: {
+        type: String,
+        enum: ["everyone", "mutual_servers", "none"],
+        default: "everyone",
+      },
+
+      allowDMs: {
+        type: Boolean,
+        default: true,
+      },
+
+      showPresence: {
+        type: Boolean,
+        default: true,
+      },
     },
   },
   { timestamps: true }
