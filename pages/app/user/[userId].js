@@ -458,7 +458,7 @@ export default function UserProfilePage() {
 
                     <div className="pb-2">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h1 className="text-4xl font-black">
+                        <h1 className="text-4xl mt-3 font-black">
                           {profile.username || profile.name || "Unknown User"}
                         </h1>
 
