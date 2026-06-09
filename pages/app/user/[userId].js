@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Check,
   UserCheck,
+  Ban,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -23,6 +24,8 @@ export default function UserProfilePage() {
   const [friendMessage, setFriendMessage] = useState("");
   const [friendStatus, setFriendStatus] = useState("none");
   const [friendRequestId, setFriendRequestId] = useState(null);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedBy, setBlockedBy] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -30,41 +33,6 @@ export default function UserProfilePage() {
     loadProfile();
     loadFriendStatus();
   }, [userId]);
-
-  async function removeFriend() {
-  if (!userId || friendLoading) return;
-
-  if (!confirm("Remove this friend?")) return;
-
-  try {
-    setFriendLoading(true);
-    setFriendMessage("");
-
-    const res = await fetch("/api/friends/remove", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setFriendMessage(data.message || "Could not remove friend");
-      return;
-    }
-
-    setFriendStatus("none");
-    setFriendRequestId(null);
-    setFriendMessage("Friend removed");
-  } catch (error) {
-    console.error("REMOVE_FRIEND_ERROR", error);
-    setFriendMessage("Could not remove friend");
-  } finally {
-    setFriendLoading(false);
-  }
-}
 
   async function loadProfile() {
     try {
@@ -92,6 +60,8 @@ export default function UserProfilePage() {
       if (res.ok) {
         setFriendStatus(data.status || "none");
         setFriendRequestId(data.requestId || null);
+        setIsBlocked(Boolean(data.blocked));
+        setBlockedBy(Boolean(data.blockedBy));
       }
     } catch (error) {
       console.error("LOAD_PROFILE_FRIEND_STATUS_ERROR", error);
@@ -99,22 +69,28 @@ export default function UserProfilePage() {
   }
 
   async function startDM() {
-    if (!userId) return;
+    if (!userId || isBlocked || blockedBy) return;
 
     try {
       const res = await fetch("/api/dms/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ userId }),
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        router.push(`/app/me/${data.conversation._id}`);
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not start conversation");
+        return;
       }
+
+      router.push(`/app/me/${data.conversation._id}`);
     } catch (error) {
       console.error("START_PROFILE_DM_ERROR", error);
+      setFriendMessage("Could not start conversation");
     }
   }
 
@@ -127,7 +103,9 @@ export default function UserProfilePage() {
 
       const res = await fetch("/api/friends/send-request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ userId }),
       });
 
@@ -159,8 +137,13 @@ export default function UserProfilePage() {
 
       const res = await fetch("/api/friends/respond-request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId: friendRequestId, action: "accept" }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requestId: friendRequestId,
+          action: "accept",
+        }),
       });
 
       const data = await res.json();
@@ -181,8 +164,169 @@ export default function UserProfilePage() {
     }
   }
 
+  async function removeFriend() {
+    if (!userId || friendLoading) return;
+    if (!confirm("Remove this friend?")) return;
+
+    try {
+      setFriendLoading(true);
+      setFriendMessage("");
+
+      const res = await fetch("/api/friends/remove", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not remove friend");
+        return;
+      }
+
+      setFriendStatus("none");
+      setFriendRequestId(null);
+      setFriendMessage("Friend removed");
+    } catch (error) {
+      console.error("REMOVE_FRIEND_ERROR", error);
+      setFriendMessage("Could not remove friend");
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
+  async function blockUser() {
+    if (!userId || friendLoading) return;
+    if (!confirm("Block this user?")) return;
+
+    try {
+      setFriendLoading(true);
+      setFriendMessage("");
+
+      const res = await fetch("/api/friends/block", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not block user");
+        return;
+      }
+
+      setIsBlocked(true);
+      setBlockedBy(false);
+      setFriendStatus("blocked");
+      setFriendRequestId(null);
+      setFriendMessage("User blocked");
+    } catch (error) {
+      console.error("BLOCK_USER_ERROR", error);
+      setFriendMessage("Could not block user");
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
+  async function unblockUser() {
+    if (!userId || friendLoading) return;
+
+    try {
+      setFriendLoading(true);
+      setFriendMessage("");
+
+      const res = await fetch("/api/friends/unblock", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not unblock user");
+        return;
+      }
+
+      setIsBlocked(false);
+      setFriendStatus("none");
+      setFriendMessage("User unblocked");
+    } catch (error) {
+      console.error("UNBLOCK_USER_ERROR", error);
+      setFriendMessage("Could not unblock user");
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
+  function renderBlockButton() {
+    if (friendStatus === "self") return null;
+
+    if (blockedBy) {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-300"
+        >
+          <Ban size={17} />
+          BLOCKED
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={isBlocked ? unblockUser : blockUser}
+        disabled={friendLoading}
+        className={`flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+          isBlocked
+            ? "border-green-500/20 bg-green-500/10 text-green-300 hover:bg-green-500/20"
+            : "border-red-500/20 bg-red-500/10 text-red-300 hover:bg-red-500/20"
+        }`}
+      >
+        <Ban size={17} />
+        {isBlocked ? "UNBLOCK" : "BLOCK"}
+      </button>
+    );
+  }
+
   function renderFriendButton() {
     if (friendStatus === "self") return null;
+
+    if (isBlocked) {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-300"
+        >
+          <Ban size={17} />
+          BLOCKED
+        </button>
+      );
+    }
+
+    if (blockedBy) {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-400"
+        >
+          UNAVAILABLE
+        </button>
+      );
+    }
 
     if (friendStatus === "friends") {
       return (
@@ -319,12 +463,14 @@ export default function UserProfilePage() {
                     <button
                       type="button"
                       onClick={startDM}
-                      className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-500"
+                      disabled={isBlocked || blockedBy}
+                      className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <MessageCircle size={17} />
                       Message
                     </button>
 
+                    {renderBlockButton()}
                     {renderFriendButton()}
                   </div>
                 </div>
@@ -373,7 +519,9 @@ export default function UserProfilePage() {
                         )}
 
                         {!profile.isStaff && !profile.isAdmin && (
-                          <p className="text-sm text-slate-500">No badges yet.</p>
+                          <p className="text-sm text-slate-500">
+                            No badges yet.
+                          </p>
                         )}
                       </div>
                     </div>

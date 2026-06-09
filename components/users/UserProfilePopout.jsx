@@ -8,8 +8,8 @@ import {
   X,
   ExternalLink,
   Check,
-  Clock,
   UserCheck,
+  Ban,
 } from "lucide-react";
 
 export default function UserProfilePopout({ user, member, presence, onClose }) {
@@ -19,6 +19,8 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
   const [friendMessage, setFriendMessage] = useState("");
   const [friendStatus, setFriendStatus] = useState("none");
   const [friendRequestId, setFriendRequestId] = useState(null);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedBy, setBlockedBy] = useState(false);
 
   const userId = user?._id || user?.id;
 
@@ -58,6 +60,8 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
       if (res.ok) {
         setFriendStatus(data.status || "none");
         setFriendRequestId(data.requestId || null);
+        setIsBlocked(Boolean(data.blocked));
+        setBlockedBy(Boolean(data.blockedBy));
       }
     } catch (error) {
       console.error("LOAD_POPOUT_FRIEND_STATUS_ERROR", error);
@@ -65,7 +69,7 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
   }
 
   async function startDM() {
-    if (!userId) return;
+    if (!userId || isBlocked || blockedBy) return;
 
     try {
       const res = await fetch("/api/dms/create", {
@@ -76,7 +80,10 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
 
       const data = await res.json();
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not start conversation");
+        return;
+      }
 
       onClose?.();
       router.push(`/app/me/${data.conversation._id}`);
@@ -117,41 +124,6 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
     }
   }
 
-  async function removeFriend() {
-  if (!userId || friendLoading) return;
-
-  if (!confirm("Remove this friend?")) return;
-
-  try {
-    setFriendLoading(true);
-    setFriendMessage("");
-
-    const res = await fetch("/api/friends/remove", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setFriendMessage(data.message || "Could not remove friend");
-      return;
-    }
-
-    setFriendStatus("none");
-    setFriendRequestId(null);
-    setFriendMessage("Friend removed");
-  } catch (error) {
-    console.error("REMOVE_FRIEND_ERROR", error);
-    setFriendMessage("Could not remove friend");
-  } finally {
-    setFriendLoading(false);
-  }
-}
-
   async function acceptFriendRequest() {
     if (!friendRequestId || friendLoading) return;
 
@@ -183,14 +155,169 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
     }
   }
 
+  async function removeFriend() {
+    if (!userId || friendLoading) return;
+    if (!confirm("Remove this friend?")) return;
+
+    try {
+      setFriendLoading(true);
+      setFriendMessage("");
+
+      const res = await fetch("/api/friends/remove", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not remove friend");
+        return;
+      }
+
+      setFriendStatus("none");
+      setFriendRequestId(null);
+      setFriendMessage("Friend removed");
+    } catch (error) {
+      console.error("REMOVE_POPOUT_FRIEND_ERROR", error);
+      setFriendMessage("Could not remove friend");
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
+  async function blockUser() {
+    if (!userId || friendLoading) return;
+    if (!confirm("Block this user?")) return;
+
+    try {
+      setFriendLoading(true);
+      setFriendMessage("");
+
+      const res = await fetch("/api/friends/block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not block user");
+        return;
+      }
+
+      setIsBlocked(true);
+      setBlockedBy(false);
+      setFriendStatus("blocked");
+      setFriendRequestId(null);
+      setFriendMessage("User blocked");
+    } catch (error) {
+      console.error("BLOCK_POPOUT_USER_ERROR", error);
+      setFriendMessage("Could not block user");
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
+  async function unblockUser() {
+    if (!userId || friendLoading) return;
+
+    try {
+      setFriendLoading(true);
+      setFriendMessage("");
+
+      const res = await fetch("/api/friends/unblock", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFriendMessage(data.message || "Could not unblock user");
+        return;
+      }
+
+      setIsBlocked(false);
+      setFriendStatus("none");
+      setFriendMessage("User unblocked");
+    } catch (error) {
+      console.error("UNBLOCK_POPOUT_USER_ERROR", error);
+      setFriendMessage("Could not unblock user");
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
   function viewProfile() {
     if (!userId) return;
     onClose?.();
     router.push(`/app/user/${userId}`);
   }
 
+  function renderBlockButton() {
+    if (friendStatus === "self") return null;
+
+    if (blockedBy) {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 py-3 text-sm font-bold text-red-300 opacity-70"
+        >
+          <Ban size={16} />
+          BLOCKED
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={isBlocked ? unblockUser : blockUser}
+        disabled={friendLoading}
+        className={`flex items-center justify-center gap-2 rounded-xl border py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+          isBlocked
+            ? "border-green-500/20 bg-green-500/10 text-green-300 hover:bg-green-500/20"
+            : "border-red-500/20 bg-red-500/10 text-red-300 hover:bg-red-500/20"
+        }`}
+      >
+        <Ban size={16} />
+        {isBlocked ? "UNBLOCK" : "BLOCK"}
+      </button>
+    );
+  }
+
   function renderFriendButton() {
     if (friendStatus === "self") return null;
+
+    if (isBlocked) {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 py-3 text-sm font-bold text-red-300"
+        >
+          <Ban size={16} />
+          BLOCKED
+        </button>
+      );
+    }
+
+    if (blockedBy) {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-400"
+        >
+          UNAVAILABLE
+        </button>
+      );
+    }
 
     if (friendStatus === "friends") {
       return (
@@ -198,9 +325,9 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
           type="button"
           onClick={removeFriend}
           disabled={friendLoading}
-          className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <UserCheck size={17} />
+          <UserCheck size={16} />
           {friendLoading ? "REMOVING..." : "REMOVE FRIEND"}
         </button>
       );
@@ -225,7 +352,7 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
           type="button"
           onClick={acceptFriendRequest}
           disabled={friendLoading}
-          className="flex items-center justify-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 py-3 text-sm font-bold text-green-300 transition hover:-translate-y-0.5 hover:bg-green-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex items-center justify-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 py-3 text-sm font-bold text-green-300 transition hover:bg-green-500/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <UserCheck size={16} />
           {friendLoading ? "ACCEPTING..." : "ACCEPT REQUEST"}
@@ -238,7 +365,7 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
         type="button"
         onClick={sendFriendRequest}
         disabled={friendLoading}
-        className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:-translate-y-0.5 hover:bg-white/[0.08] hover:text-white active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
       >
         <UserPlus size={16} />
         {friendLoading ? "SENDING..." : "ADD"}
@@ -253,7 +380,7 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-[0_25px_80px_rgba(0,0,0,0.75)] animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300"
+        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-[0_25px_80px_rgba(0,0,0,0.75)] animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300"
       >
         <div className="relative h-24 overflow-hidden bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500">
           <div className="absolute inset-0 animate-pulse bg-white/10" />
@@ -294,7 +421,11 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
           </div>
 
           <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <button type="button" onClick={viewProfile} className="max-w-full text-left">
+            <button
+              type="button"
+              onClick={viewProfile}
+              className="max-w-full text-left"
+            >
               <h2 className="truncate text-2xl font-black text-white hover:underline">
                 {user.username || user.name || "Unknown User"}
               </h2>
@@ -313,36 +444,38 @@ export default function UserProfilePopout({ user, member, presence, onClose }) {
 
           <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {user.isStaff && (
-              <span className="flex items-center gap-1 rounded-lg bg-violet-500/15 px-2 py-1 text-xs font-bold text-violet-300 transition hover:scale-105 hover:bg-violet-500/25">
+              <span className="flex items-center gap-1 rounded-lg bg-violet-500/15 px-2 py-1 text-xs font-bold text-violet-300">
                 ◆ Staff
               </span>
             )}
 
             {user.isAdmin && (
-              <span className="flex items-center gap-1 rounded-lg bg-red-500/15 px-2 py-1 text-xs font-bold text-red-300 transition hover:scale-105 hover:bg-red-500/25">
+              <span className="flex items-center gap-1 rounded-lg bg-red-500/15 px-2 py-1 text-xs font-bold text-red-300">
                 <Shield size={13} />
                 Admin
               </span>
             )}
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-bottom-3 duration-500">
+          <div className="mt-5 grid grid-cols-3 gap-3 animate-in fade-in slide-in-from-bottom-3 duration-500">
             <button
               type="button"
               onClick={startDM}
-              className="flex items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-violet-500 hover:shadow-[0_10px_30px_rgba(124,58,237,0.35)] active:translate-y-0"
+              disabled={isBlocked || blockedBy}
+              className="flex items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <MessageCircle size={16} />
               Message
             </button>
 
+            {renderBlockButton()}
             {renderFriendButton()}
           </div>
 
           <button
             type="button"
             onClick={viewProfile}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:-translate-y-0.5 hover:bg-white/[0.08] hover:text-white active:translate-y-0"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-bold text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
           >
             <ExternalLink size={16} />
             View Profile
