@@ -4,6 +4,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Friend from "@/models/Friend";
 import FriendRequest from "@/models/FriendRequest";
+import BlockedUser from "@/models/blockedUser";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -32,20 +33,52 @@ export default async function handler(req, res) {
       return res.status(200).json({
         status: "self",
         requestId: null,
+        blocked: false,
+        blockedBy: false,
+      });
+    }
+
+    const blocked = await BlockedUser.findOne({
+      blockerId: currentUserId,
+      blockedId: targetUserId,
+    });
+
+    if (blocked) {
+      return res.status(200).json({
+        status: "blocked",
+        requestId: null,
+        blocked: true,
+        blockedBy: false,
+      });
+    }
+
+    const blockedBy = await BlockedUser.findOne({
+      blockerId: targetUserId,
+      blockedId: currentUserId,
+    });
+
+    if (blockedBy) {
+      return res.status(200).json({
+        status: "blocked_by",
+        requestId: null,
+        blocked: false,
+        blockedBy: true,
       });
     }
 
     const friendship = await Friend.findOne({
-    $or: [
+      $or: [
         { userA: currentUserId, userB: targetUserId },
         { userA: targetUserId, userB: currentUserId },
-    ],
+      ],
     });
 
     if (friendship) {
       return res.status(200).json({
         status: "friends",
         requestId: null,
+        blocked: false,
+        blockedBy: false,
       });
     }
 
@@ -59,6 +92,8 @@ export default async function handler(req, res) {
       return res.status(200).json({
         status: "outgoing",
         requestId: outgoing._id,
+        blocked: false,
+        blockedBy: false,
       });
     }
 
@@ -72,12 +107,16 @@ export default async function handler(req, res) {
       return res.status(200).json({
         status: "incoming",
         requestId: incoming._id,
+        blocked: false,
+        blockedBy: false,
       });
     }
 
     return res.status(200).json({
       status: "none",
       requestId: null,
+      blocked: false,
+      blockedBy: false,
     });
   } catch (error) {
     console.error("FRIEND_STATUS_ERROR", error);
