@@ -10,7 +10,6 @@ import {
   Check,
   UserCheck,
   Ban,
-  Quote,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -425,7 +424,7 @@ export default function UserProfilePage() {
               className="overflow-hidden rounded-3xl border border-white/10 bg-[#0b0f1d]/90 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl"
             >
               <div
-                className="relative h-44 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500"
+                className="relative h-52 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500"
                 style={
                   profile.banner
                     ? {
@@ -436,13 +435,13 @@ export default function UserProfilePage() {
                     : undefined
                 }
               >
-                <div className="absolute inset-0 bg-black/10" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0b0f1d]/70" />
               </div>
 
               <div className="px-8 pb-8">
-                <div className="-mt-16 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-end">
-                    <div className="relative h-32 w-32 overflow-hidden rounded-full border-8 border-[#0b0f1d] bg-violet-600">
+                <div className="-mt-14 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-col gap-5 md:flex-row md:items-center">
+                    <div className="relative mt-4 h-32 w-32 shrink-0 overflow-hidden rounded-full border-8 border-[#0b0f1d] bg-violet-600 shadow-2xl">
                       <Image
                         src={profile.avatar || profile.image || "/logo.png"}
                         alt={profile.username || profile.name || "User"}
@@ -456,9 +455,9 @@ export default function UserProfilePage() {
                       />
                     </div>
 
-                    <div className="pb-2">
+                    <div className="flex flex-col justify-center">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h1 className="text-4xl mt-3 font-black">
+                        <h1 className="text-4xl font-black leading-none">
                           {profile.username || profile.name || "Unknown User"}
                         </h1>
 
@@ -469,19 +468,31 @@ export default function UserProfilePage() {
                         )}
                       </div>
 
-                      <p className="mt-2 text-slate-400">
-                        {customStatus || statusLabel}
-                      </p>
+                      <div className="mt-3 flex items-center gap-2">
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${statusColor}`}
+                        />
+
+                        <span className="text-sm text-slate-400">
+                          {statusLabel}
+                        </span>
+                      </div>
+
+                      {customStatus && (
+                        <p className="mt-2 text-sm text-slate-300">
+                          {customStatus}
+                        </p>
+                      )}
 
                       {friendMessage && (
-                        <p className="mt-2 text-sm text-violet-300">
+                        <p className="mt-3 text-sm text-violet-300">
                           {friendMessage}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-3 pb-2">
+                  <div className="flex flex-wrap gap-3 pb-2 md:self-end">
                     <button
                       type="button"
                       onClick={startDM}
@@ -508,19 +519,6 @@ export default function UserProfilePage() {
                         {profile.bio || "This user has not added a bio yet."}
                       </p>
                     </div>
-
-                    {profile.customStatus && (
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                        <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
-                          Custom Status
-                        </h2>
-
-                        <p className="mt-3 flex items-center gap-2 text-sm leading-6 text-slate-300">
-                          <Quote size={16} className="text-violet-400" />
-                          {profile.customStatus}
-                        </p>
-                      </div>
-                    )}
 
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                       <h2 className="text-sm font-black uppercase tracking-wide text-slate-500">
