@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-const { update } = useSession();
 import Image from "next/image";
 import {
   Bell,
@@ -114,6 +113,8 @@ async function saveSettings() {
   try {
     setSaving(true);
     setMessage("");
+
+    const { update } = useSession();
 
     const res = await fetch("/api/users/update-settings", {
       method: "PATCH",
