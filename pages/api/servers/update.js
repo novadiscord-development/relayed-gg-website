@@ -12,11 +12,14 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session) return res.status(401).json({ message: "Unauthorized" });
+
+    if (!session?.user?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     await connectDB();
 
-    const { serverId, name, icon, description } = req.body;
+    const { serverId, name, icon, banner, description } = req.body;
 
     if (!serverId) {
       return res.status(400).json({ message: "Server ID required" });
@@ -37,9 +40,37 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: "Server not found" });
     }
 
-    if (name?.trim()) server.name = name.trim();
-    if (icon !== undefined) server.icon = icon;
-    if (description !== undefined) server.description = description;
+    if (typeof name === "string") {
+      const cleanName = name.trim();
+
+      if (cleanName.length < 2 || cleanName.length > 80) {
+        return res.status(400).json({
+          message: "Server name must be between 2 and 80 characters",
+        });
+      }
+
+      server.name = cleanName;
+    }
+
+    if (typeof icon === "string") {
+      server.icon = icon.trim();
+    }
+
+    if (typeof banner === "string") {
+      server.banner = banner.trim();
+    }
+
+    if (typeof description === "string") {
+      const cleanDescription = description.trim();
+
+      if (cleanDescription.length > 500) {
+        return res.status(400).json({
+          message: "Server description must be 500 characters or less",
+        });
+      }
+
+      server.description = cleanDescription;
+    }
 
     await server.save();
 
