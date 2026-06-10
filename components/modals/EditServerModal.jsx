@@ -16,6 +16,8 @@ import {
   Camera,
   Trash2,
   ArrowRightLeft,
+  Clock3,
+ShieldCheck,
 } from "lucide-react";
 
 const tabs = [
@@ -88,6 +90,63 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
     if (res.ok) setBans(data.bans || []);
     setBansLoading(false);
   }
+
+  async function timeoutMember(member) {
+  const duration = prompt(
+    "Timeout duration (5m, 10m, 30m, 1h, 6h, 1d, 1w)",
+    "1h"
+  );
+
+  if (!duration) return;
+
+  const reason = prompt("Reason for timeout", "") || "";
+
+  const res = await fetch("/api/servers/timeout-member", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverId: server._id,
+      memberId: member._id,
+      duration,
+      reason,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.message || "Failed to timeout member");
+    return;
+  }
+
+  setOpenMemberMenu(null);
+  alert(`${member.userId?.username || "Member"} has been timed out.`);
+}
+
+async function removeTimeout(member) {
+  const res = await fetch("/api/servers/remove-timeout", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverId: server._id,
+      memberId: member._id,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.message || "Failed to remove timeout");
+    return;
+  }
+
+  setOpenMemberMenu(null);
+  alert(`${member.userId?.username || "Member"}'s timeout was removed.`);
+}
 
   async function uploadImage(file, type) {
     if (!file) return;
@@ -625,6 +684,22 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
                             Ban Member
                             <ShieldBan size={15} />
                           </button>
+
+                          <button
+                              onClick={() => timeoutMember(member)}
+                              className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/10"
+                            >
+                              Timeout Member
+                              <Clock3 size={15} />
+                            </button>
+
+                            <button
+                              onClick={() => removeTimeout(member)}
+                              className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-green-400 hover:bg-green-500/10"
+                            >
+                              Remove Timeout
+                              <ShieldCheck size={15} />
+                            </button>
                         </div>
                       </>
                     )}
