@@ -38,13 +38,24 @@ function formatRemainingTime(expiresAt) {
   return `${days} day${days === 1 ? "" : "s"}`;
 }
 
-async function sendTimeoutSystemMessage({ channel, channelId, username, expiresAt }) {
+async function sendTimeoutSystemMessage({
+  channel,
+  channelId,
+  username,
+  expiresAt,
+}) {
   const timeLimit = formatRemainingTime(expiresAt);
 
   let systemMessage = await Message.create({
     serverId: channel.serverId,
     channelId,
     system: true,
+    systemBot: true,
+    authorId: {
+      username: "Relay",
+      avatar: "/botlogo.png",
+      image: "/botlogo.png",
+    },
     content: `@${username}, you are currently timed out and cannot send messages for the next ${timeLimit}.`,
   });
 
