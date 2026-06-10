@@ -1,0 +1,74 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "../auth/[...nextauth]";
+
+import connectDB from "@/lib/mongodb";
+import Member from "@/models/Member";
+import ServerTimeout from "@/models/ServerTimeout";
+import AuditLog from "@/models/AuditLog";
+
+const MOD_ROLES = ["owner", "admin", "moderator"];
+
+export default async function handler(req, res) {
+  if (req.method !== "POST" && req.method !== "DELETE") {
+    return res.status(405).json({ message: "Method not allowed" });
+  }
+
+  try {
+    const session = await getServerSession(req, res, authOptions);
+
+    if (!session?.user?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    await connectDB();
+
+    const { serverId, memberId, reason = "" } = req.body;
+
+    if (!serverId || !memberId) {
+      return res.status(400).json({
+        message: "Server ID and member ID are required",
+      });
+    }
+
+    const moderatorMember = await Member.findOne({
+      serverId,
+      userId: session.user.id,
+    });
+
+    if (!moderatorMember || !MOD_ROLES.includes(moderatorMember.role)) {
+      return res.status(403).json({
+        message: "You do not have permission to remove timeouts",
+      });
+    }
+
+    const targetMember = await Member.findById(memberId);
+
+    if (!targetMember || targetMember.serverId.toString() !== serverId) {
+      return res.status(404).json({
+        message: "Member not found",
+      });
+    }
+
+    await ServerTimeout.findOneAndDelete({
+      serverId,
+      userId: targetMember.userId,
+    });
+
+    const cleanReason = String(reason || "").trim().slice(0, 500);
+
+    await AuditLog.create({
+      serverId,
+      action: "member_timeout_removed",
+      actorId: session.user.id,
+      targetUserId: targetMember.userId,
+      reason: cleanReason,
+    });
+
+    return res.status(200).json({
+      success: true,
+    });
+  } catch (error) {
+    console.error("REMOVE_TIMEOUT_ERROR", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+}

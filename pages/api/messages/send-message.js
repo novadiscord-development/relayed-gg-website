@@ -6,6 +6,7 @@ import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
 import Notification from "@/models/Notification";
+import ServerTimeout from "@/models/ServerTimeout";
 import { pusherServer } from "@/lib/pusher";
 
 function escapeRegExp(value) {
@@ -18,6 +19,44 @@ function contentMentionsUsername(content, username) {
   const escaped = escapeRegExp(username);
 
   return new RegExp(`(^|\\s)@${escaped}(?=\\s|$|[.,!?])`, "i").test(content);
+}
+
+function formatRemainingTime(expiresAt) {
+  const remainingMs = new Date(expiresAt).getTime() - Date.now();
+
+  if (remainingMs <= 0) return "a few moments";
+
+  const minutes = Math.ceil(remainingMs / 60000);
+
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+
+  const hours = Math.ceil(minutes / 60);
+
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"}`;
+
+  const days = Math.ceil(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"}`;
+}
+
+async function sendTimeoutSystemMessage({ channel, channelId, username, expiresAt }) {
+  const timeLimit = formatRemainingTime(expiresAt);
+
+  let systemMessage = await Message.create({
+    serverId: channel.serverId,
+    channelId,
+    system: true,
+    content: `@${username}, you are currently timed out and cannot send messages for the next ${timeLimit}.`,
+  });
+
+  systemMessage = await Message.findById(systemMessage._id);
+
+  await pusherServer.trigger(
+    `channel-${channelId}`,
+    "message:new",
+    systemMessage
+  );
+
+  return systemMessage;
 }
 
 export default async function handler(req, res) {
@@ -62,15 +101,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Too many attachments" });
     }
 
-    const safeAttachments = cleanAttachments.map((attachment) => ({
-      url: attachment.url,
-      type: attachment.type || "image",
-      name: attachment.name || "",
-      size: attachment.size || 0,
-      width: attachment.width || 0,
-      height: attachment.height || 0,
-    }));
-
     const channel = await Channel.findById(channelId);
 
     if (!channel || channel.type !== "text") {
@@ -80,11 +110,49 @@ export default async function handler(req, res) {
     const membership = await Member.findOne({
       serverId: channel.serverId,
       userId: session.user.id,
-    });
+    }).populate("userId", "username");
 
     if (!membership) {
       return res.status(403).json({ message: "You are not in this server" });
     }
+
+    const timeout = await ServerTimeout.findOne({
+      serverId: channel.serverId,
+      userId: session.user.id,
+    });
+
+    if (timeout) {
+      if (timeout.expiresAt <= new Date()) {
+        await ServerTimeout.findByIdAndDelete(timeout._id);
+      } else {
+        const systemMessage = await sendTimeoutSystemMessage({
+          channel,
+          channelId,
+          username:
+            membership.userId?.username ||
+            session.user.username ||
+            session.user.name ||
+            "User",
+          expiresAt: timeout.expiresAt,
+        });
+
+        return res.status(403).json({
+          timedOut: true,
+          message: "You are currently timed out.",
+          systemMessage,
+          expiresAt: timeout.expiresAt,
+        });
+      }
+    }
+
+    const safeAttachments = cleanAttachments.map((attachment) => ({
+      url: attachment.url,
+      type: attachment.type || "image",
+      name: attachment.name || "",
+      size: attachment.size || 0,
+      width: attachment.width || 0,
+      height: attachment.height || 0,
+    }));
 
     let replyToMessage = null;
 
