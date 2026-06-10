@@ -73,7 +73,15 @@ const MessageSchema = new mongoose.Schema(
     authorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: function () {
+        return !this.system;
+      },
+      default: null,
+    },
+
+    systemBot: {
+      type: Boolean,
+      default: false,
     },
 
     content: {
