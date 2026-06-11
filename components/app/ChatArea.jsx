@@ -66,9 +66,31 @@ export default function ChatArea() {
   const [embed, setEmbed] = useState(emptyEmbed);
   const [sendingEmbed, setSendingEmbed] = useState(false);
 
-  const canCreateEmbeds = ["owner", "admin", "moderator", "member"].includes(
-    currentMember?.role
-  );
+  function memberHasPermission(member, permission) {
+    if (!member) return false;
+
+    if (["owner", "admin"].includes(member.role)) {
+      return true;
+    }
+
+    if (permission === "sendMessages" && ["moderator", "member"].includes(member.role)) {
+      return true;
+    }
+
+    if (permission === "attachFiles" && ["moderator", "member"].includes(member.role)) {
+      return true;
+    }
+
+    if (permission === "manageMessages" && member.role === "moderator") {
+      return true;
+    }
+
+    return member.roles?.some((role) => Boolean(role.permissions?.[permission]));
+  }
+
+  const canCreateEmbeds =
+    memberHasPermission(currentMember, "manageMessages") ||
+    memberHasPermission(currentMember, "mentionEveryone");
 
   useEffect(() => {
     if (!serverId || !channelId) return;
@@ -753,6 +775,8 @@ export default function ChatArea() {
         <UserProfilePopout
           user={selectedMember.userId}
           member={selectedMember}
+          currentMember={currentMember}
+          serverId={serverId}
           presence={{ status: "offline", customStatus: "" }}
           onClose={() => {
             setSelectedMember(null);

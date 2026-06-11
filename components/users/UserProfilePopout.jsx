@@ -65,11 +65,20 @@ export default function UserProfilePopout({
       ? "Do Not Disturb"
       : "Offline";
 
+  const currentPermissions = currentMember?.permissions || {};
+
   const canModerate =
     currentMember &&
-    ["owner", "admin", "moderator"].includes(currentMember.role) &&
-    member?.role !== "owner" &&
-    friendStatus !== "self";
+    friendStatus !== "self" &&
+    currentMember._id !== member?._id &&
+    (
+      currentPermissions.kickMembers ||
+      currentPermissions.banMembers ||
+      currentPermissions.timeoutMembers ||
+      currentMember.role === "owner" ||
+      currentMember.role === "admin" ||
+      currentMember.role === "moderator"
+    );
 
   async function loadFriendStatus() {
     try {
