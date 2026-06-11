@@ -980,21 +980,6 @@ async function assignRole(member, role, action) {
           </div>
 
           <div className="mt-6 space-y-3">
-            {["Owner", "Admin", "Moderator", "Member"].map((role) => (
-              <div
-                key={role}
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-              >
-                <div>
-                  <p className="font-bold text-white">{role}</p>
-                  <p className="text-xs text-slate-500">Built-in system role</p>
-                </div>
-
-                <span className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-500">
-                  System
-                </span>
-              </div>
-            ))}
 
             {roles.map((role) => (
               <div
