@@ -32,7 +32,6 @@ const tabs = [
   { id: "audit", label: "Audit Logs", icon: ShieldCheck },
 ];
 
-const systemRoles = ["admin", "moderator", "member"];
 
 export default function EditServerModal({ server, onClose, onUpdated }) {
   const [activeTab, setActiveTab] = useState("overview");
@@ -527,8 +526,51 @@ async function assignRole(member, role, action) {
     member.userId?.username?.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
-  const canManageMembers = currentMember?.role === "owner";
+  function getRolePermissions(member) {
+    const permissions = {};
+
+    member?.roles?.forEach((role) => {
+      Object.entries(role.permissions || {}).forEach(([key, value]) => {
+        if (value === true) permissions[key] = true;
+      });
+    });
+
+    return permissions;
+  }
+
+  function memberHasPermission(member, permission) {
+    if (!member) return false;
+    if (member.role === "owner") return true;
+
+    const permissions = getRolePermissions(member);
+    return Boolean(permissions[permission]);
+  }
+
+  const currentPermissions = getRolePermissions(currentMember);
   const isOwner = currentMember?.role === "owner";
+
+  const canManageServer = isOwner || Boolean(currentPermissions.manageServer);
+  const canManageRoles = isOwner || Boolean(currentPermissions.manageRoles);
+  const canKickMembers = isOwner || Boolean(currentPermissions.kickMembers);
+  const canBanMembers = isOwner || Boolean(currentPermissions.banMembers);
+  const canTimeoutMembers =
+    isOwner || Boolean(currentPermissions.timeoutMembers);
+
+  const canManageMembers =
+    isOwner ||
+    canManageRoles ||
+    canKickMembers ||
+    canBanMembers ||
+    canTimeoutMembers;
+
+  function canManageTargetMember(targetMember, permission) {
+    if (!currentMember || !targetMember) return false;
+    if (currentMember._id === targetMember._id) return false;
+    if (targetMember.role === "owner") return false;
+    if (isOwner) return true;
+
+    return memberHasPermission(currentMember, permission);
+  }
 
   function getInitials(value) {
     return value
@@ -542,6 +584,19 @@ async function assignRole(member, role, action) {
 
   function renderContent() {
     if (activeTab === "overview") {
+      if (!canManageServer) {
+        return (
+          <div>
+            <h2 className="text-xl font-black text-white">Server Overview</h2>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+              <p className="text-sm font-bold text-slate-300">
+                You need the Manage Server permission to edit this server.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div>
           <h2 className="text-xl font-black text-white">Server Overview</h2>
@@ -759,7 +814,10 @@ async function assignRole(member, role, action) {
               filteredMembers.map((member) => {
                 const user = member.userId;
                 const memberIsOwner = member.role === "owner";
-                const canManageThisMember = canManageMembers && !memberIsOwner;
+                const canManageThisMember =
+                  canManageMembers &&
+                  currentMember?._id !== member._id &&
+                  !memberIsOwner;
 
                 return (
                   <div
@@ -841,28 +899,8 @@ async function assignRole(member, role, action) {
                         />
 
                         <div className="absolute right-4 top-14 z-[9999] w-56 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
-                          <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase text-slate-500">
-                            Change Role
-                          </p>
-
-                          {systemRoles.map((role) => (
-                            <button
-                              key={role}
-                              onClick={() => updateMemberRole(member, role)}
-                              className={`flex w-full rounded-lg px-3 py-2 text-left text-sm capitalize ${
-                                member.role === role
-                                  ? "bg-violet-600 text-white"
-                                  : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
-                              }`}
-                            >
-                              {role}
-                            </button>
-                          ))}
-
-                          {roles.length > 0 && (
+                          {canManageRoles && roles.length > 0 && (
                             <>
-                              <div className="my-1 h-px bg-white/10" />
-
                               <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase text-slate-500">
                                 Custom Roles
                               </p>
@@ -902,50 +940,60 @@ async function assignRole(member, role, action) {
                                   </button>
                                 );
                               })}
+
+                              <div className="my-1 h-px bg-white/10" />
                             </>
                           )}
 
-                          <div className="my-1 h-px bg-white/10" />
-
-                          <button
-                            onClick={() => transferOwnership(member)}
-                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-yellow-300 hover:bg-yellow-500/10"
-                          >
-                            Transfer Ownership
-                            <ArrowRightLeft size={15} />
-                          </button>
-
-                          <button
-                            onClick={() => kickMember(member)}
-                            className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
-                          >
-                            Kick Member
-                            <UserMinus size={15} />
-                          </button>
-
-                          <button
-                            onClick={() => banMember(member)}
-                            className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-500 hover:bg-red-500/10"
-                          >
-                            Ban Member
-                            <ShieldBan size={15} />
-                          </button>
-
-                          <button
-                              onClick={() => timeoutMember(member)}
-                              className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/10"
-                            >
-                              Timeout Member
-                              <Clock3 size={15} />
-                            </button>
-
+                          {isOwner && (
                             <button
-                              onClick={() => removeTimeout(member)}
-                              className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-green-400 hover:bg-green-500/10"
+                              onClick={() => transferOwnership(member)}
+                              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-yellow-300 hover:bg-yellow-500/10"
                             >
-                              Remove Timeout
-                              <ShieldCheck size={15} />
+                              Transfer Ownership
+                              <ArrowRightLeft size={15} />
                             </button>
+                          )}
+
+                          {canManageTargetMember(member, "kickMembers") && (
+                            <button
+                              onClick={() => kickMember(member)}
+                              className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                            >
+                              Kick Member
+                              <UserMinus size={15} />
+                            </button>
+                          )}
+
+                          {canManageTargetMember(member, "banMembers") && (
+                            <button
+                              onClick={() => banMember(member)}
+                              className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-500 hover:bg-red-500/10"
+                            >
+                              Ban Member
+                              <ShieldBan size={15} />
+                            </button>
+                          )}
+
+                          {canManageTargetMember(member, "timeoutMembers") && (
+                            <>
+                              <button
+                                onClick={() => timeoutMember(member)}
+                                className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/10"
+                              >
+                                Timeout Member
+                                <Clock3 size={15} />
+                              </button>
+
+                              <button
+                                onClick={() => removeTimeout(member)}
+                                className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-green-400 hover:bg-green-500/10"
+                              >
+                                Remove Timeout
+                                <ShieldCheck size={15} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </>
                     )}
@@ -959,6 +1007,19 @@ async function assignRole(member, role, action) {
     }
 
     if (activeTab === "roles") {
+      if (!canManageRoles) {
+        return (
+          <div>
+            <h2 className="text-2xl font-black text-white">Roles</h2>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+              <p className="text-sm font-bold text-slate-300">
+                You need the Manage Roles permission to edit roles.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div>
           <div className="flex items-center justify-between gap-4">
@@ -1063,6 +1124,19 @@ async function assignRole(member, role, action) {
     }
 
     if (activeTab === "role-editor") {
+      if (!canManageRoles) {
+        return (
+          <div>
+            <h2 className="text-2xl font-black text-white">Edit Role</h2>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+              <p className="text-sm font-bold text-slate-300">
+                You need the Manage Roles permission to edit roles.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
       const permissions = [
         ["manageServer", "Manage Server"],
         ["manageChannels", "Manage Channels"],
