@@ -21,6 +21,8 @@ import {
   ShieldAlert,
   Plus,
   Pencil,
+  Copy,
+  RefreshCw,
 } from "lucide-react";
 
 const tabs = [
@@ -55,6 +57,9 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   const [bansLoading, setBansLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [invites, setInvites] = useState([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [inviteCreating, setInviteCreating] = useState(false);
 
   const [roles, setRoles] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
@@ -64,6 +69,57 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
     color: "#99aab5",
     permissions: {},
   });
+
+  const [dialog, setDialog] = useState(null);
+  const [dialogInput, setDialogInput] = useState("");
+
+  function showAlert(message, title = "Notice") {
+    return new Promise((resolve) => {
+      setDialog({
+        type: "alert",
+        title,
+        message,
+        resolve,
+      });
+    });
+  }
+
+  function showConfirm(message, options = {}) {
+    return new Promise((resolve) => {
+      setDialog({
+        type: "confirm",
+        title: options.title || "Confirm Action",
+        message,
+        confirmText: options.confirmText || "Confirm",
+        cancelText: options.cancelText || "Cancel",
+        danger: Boolean(options.danger),
+        resolve,
+      });
+    });
+  }
+
+  function showPrompt(message, defaultValue = "", options = {}) {
+    return new Promise((resolve) => {
+      setDialogInput(defaultValue);
+      setDialog({
+        type: "prompt",
+        title: options.title || "Input Required",
+        message,
+        confirmText: options.confirmText || "Continue",
+        cancelText: options.cancelText || "Cancel",
+        placeholder: options.placeholder || "",
+        danger: Boolean(options.danger),
+        resolve,
+      });
+    });
+  }
+
+  function closeDialog(value) {
+    const resolver = dialog?.resolve;
+    setDialog(null);
+    setDialogInput("");
+    resolver?.(value);
+  }
 
   useEffect(() => {
     setName(server?.name || "");
@@ -83,6 +139,10 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
   useEffect(() => {
     if (activeTab === "roles" && server?._id) loadRoles();
+  }, [activeTab, server?._id]);
+
+  useEffect(() => {
+    if (activeTab === "invites" && server?._id) loadInvites();
   }, [activeTab, server?._id]);
 
   async function loadMembers() {
@@ -109,15 +169,117 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
     setBansLoading(false);
   }
 
+  async function loadInvites() {
+    setInvitesLoading(true);
+
+    try {
+      const res = await fetch(`/api/invites/get?serverId=${server._id}`);
+      const data = await res.json();
+
+      if (res.ok) {
+        setInvites(data.invites || []);
+      }
+    } catch (error) {
+      console.error("LOAD_INVITES_ERROR", error);
+    } finally {
+      setInvitesLoading(false);
+    }
+  }
+
+  async function createInvite() {
+    if (inviteCreating) return;
+
+    setInviteCreating(true);
+
+    try {
+      const res = await fetch("/api/invites/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          serverId: server._id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        await showAlert(data.message || "Failed to create invite", "Invite Error");
+        return;
+      }
+
+      await loadInvites();
+    } catch (error) {
+      console.error("CREATE_INVITE_ERROR", error);
+      await showAlert("Failed to create invite", "Invite Error");
+    } finally {
+      setInviteCreating(false);
+    }
+  }
+
+  async function revokeInvite(invite) {
+    const confirmed = await showConfirm("Revoke this invite link?", {
+      title: "Revoke Invite",
+      confirmText: "Revoke",
+      danger: true,
+    });
+
+    if (!confirmed) return;
+
+    const res = await fetch("/api/invites/delete", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        serverId: server._id,
+        inviteId: invite._id,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      await showAlert(data.message || "Failed to revoke invite", "Invite Error");
+      return;
+    }
+
+    setInvites((prev) => prev.filter((item) => item._id !== invite._id));
+  }
+
+  async function copyInvite(invite) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const code = invite.code || invite.inviteCode || invite._id;
+    const inviteUrl = `${origin}/invite/${code}`;
+
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+    } catch (error) {
+      console.error("COPY_INVITE_ERROR", error);
+    }
+  }
+
   async function timeoutMember(member) {
-  const duration = prompt(
+  const duration = await showPrompt(
     "Timeout duration (5m, 10m, 30m, 1h, 6h, 1d, 1w)",
-    "1h"
+    "1h",
+    {
+      title: "Timeout Member",
+      confirmText: "Next",
+      placeholder: "1h",
+    }
   );
 
   if (!duration) return;
 
-  const reason = prompt("Reason for timeout", "") || "";
+  const reason =
+    (await showPrompt("Reason for timeout", "", {
+      title: "Timeout Reason",
+      confirmText: "Timeout",
+      placeholder: "Optional reason",
+      danger: true,
+    })) || "";
 
   const res = await fetch("/api/servers/timeout-member", {
     method: "POST",
@@ -135,12 +297,12 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   const data = await res.json();
 
   if (!res.ok) {
-    alert(data.message || "Failed to timeout member");
+    await showAlert(data.message || "Failed to timeout member", "Timeout Error");
     return;
   }
 
   setOpenMemberMenu(null);
-  alert(`${member.userId?.username || "Member"} has been timed out.`);
+  await showAlert(`${member.userId?.username || "Member"} has been timed out.`, "Member Timed Out");
 }
 
 async function removeTimeout(member) {
@@ -158,12 +320,12 @@ async function removeTimeout(member) {
   const data = await res.json();
 
   if (!res.ok) {
-    alert(data.message || "Failed to remove timeout");
+    await showAlert(data.message || "Failed to remove timeout", "Timeout Error");
     return;
   }
 
   setOpenMemberMenu(null);
-  alert(`${member.userId?.username || "Member"}'s timeout was removed.`);
+  await showAlert(`${member.userId?.username || "Member"}'s timeout was removed.`, "Timeout Removed");
 }
 
 useEffect(() => {
@@ -198,7 +360,11 @@ async function loadRoles() {
 }
 
 async function createRole() {
-  const roleName = prompt("Role name", "New Role");
+  const roleName = await showPrompt("Role name", "New Role", {
+    title: "Create Role",
+    confirmText: "Create",
+    placeholder: "New Role",
+  });
 
   if (!roleName?.trim()) return;
 
@@ -216,7 +382,7 @@ async function createRole() {
   const data = await res.json();
 
   if (!res.ok) {
-    alert(data.message || "Failed to create role");
+    await showAlert(data.message || "Failed to create role", "Role Error");
     return;
   }
 
@@ -268,7 +434,7 @@ async function saveRole() {
   setRoleSaving(false);
 
   if (!res.ok) {
-    alert(data.message || "Failed to save role");
+    await showAlert(data.message || "Failed to save role", "Role Error");
     return;
   }
 
@@ -278,7 +444,11 @@ async function saveRole() {
 }
 
 async function deleteRole(role) {
-  const confirmed = confirm(`Delete role "${role.name}"?`);
+  const confirmed = await showConfirm(`Delete role "${role.name}"?`, {
+    title: "Delete Role",
+    confirmText: "Delete",
+    danger: true,
+  });
 
   if (!confirmed) return;
 
@@ -296,7 +466,7 @@ async function deleteRole(role) {
   const data = await res.json();
 
   if (!res.ok) {
-    alert(data.message || "Failed to delete role");
+    await showAlert(data.message || "Failed to delete role", "Role Error");
     return;
   }
 
@@ -321,7 +491,7 @@ async function assignRole(member, role, action) {
   const data = await res.json();
 
   if (!res.ok) {
-    alert(data.message || "Failed to update member role");
+    await showAlert(data.message || "Failed to update member role", "Role Error");
     return;
   }
 
@@ -416,8 +586,13 @@ async function assignRole(member, role, action) {
   async function transferOwnership(member) {
     const username = member.userId?.username || "this member";
 
-    const confirmed = confirm(
-      `Transfer ownership of ${server?.name} to ${username}? You will lose owner permissions.`
+    const confirmed = await showConfirm(
+      `Transfer ownership of ${server?.name} to ${username}? You will lose owner permissions.`,
+      {
+        title: "Transfer Ownership",
+        confirmText: "Transfer",
+        danger: true,
+      }
     );
 
     if (!confirmed) return;
@@ -441,8 +616,15 @@ async function assignRole(member, role, action) {
   }
 
   async function deleteServer() {
-    const typed = prompt(
-      `Type "${server?.name}" to permanently delete this server.`
+    const typed = await showPrompt(
+      `Type "${server?.name}" to permanently delete this server.`,
+      "",
+      {
+        title: "Delete Server",
+        confirmText: "Delete Server",
+        placeholder: server?.name || "Server name",
+        danger: true,
+      }
     );
 
     if (typed !== server?.name) return;
@@ -466,8 +648,13 @@ async function assignRole(member, role, action) {
   }
 
   async function kickMember(member) {
-    const confirmed = confirm(
-      `Kick ${member.userId?.username || "this member"} from ${server?.name}?`
+    const confirmed = await showConfirm(
+      `Kick ${member.userId?.username || "this member"} from ${server?.name}?`,
+      {
+        title: "Kick Member",
+        confirmText: "Kick",
+        danger: true,
+      }
     );
 
     if (!confirmed) return;
@@ -488,8 +675,13 @@ async function assignRole(member, role, action) {
   }
 
   async function banMember(member) {
-    const confirmed = confirm(
-      `Ban ${member.userId?.username || "this member"}?`
+    const confirmed = await showConfirm(
+      `Ban ${member.userId?.username || "this member"}?`,
+      {
+        title: "Ban Member",
+        confirmText: "Ban",
+        danger: true,
+      }
     );
     if (!confirmed) return;
 
@@ -580,6 +772,38 @@ async function assignRole(member, role, action) {
       .map((word) => word[0])
       .join("")
       .toUpperCase();
+  }
+
+  function getInviteUrl(invite) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const code = invite.code || invite.inviteCode || invite._id;
+
+    return `${origin}/invite/${code}`;
+  }
+
+  function formatInviteUses(invite) {
+    const uses = invite.uses || 0;
+
+    if (!invite.maxUses) {
+      return `${uses} use${uses === 1 ? "" : "s"}`;
+    }
+
+    return `${uses}/${invite.maxUses} uses`;
+  }
+
+  function formatInviteExpiry(invite) {
+    if (!invite.expiresAt) return "Never expires";
+
+    const expiresAt = new Date(invite.expiresAt);
+
+    if (Number.isNaN(expiresAt.getTime())) return "Never expires";
+    if (expiresAt <= new Date()) return "Expired";
+
+    return `Expires ${expiresAt.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })}`;
   }
 
   function renderContent() {
@@ -1288,13 +1512,111 @@ async function assignRole(member, role, action) {
     if (activeTab === "invites") {
       return (
         <div>
-          <h2 className="text-2xl font-black text-white">Invites</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            View and revoke active invite links.
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black text-white">Invites</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Create, copy, and revoke active invite links.
+              </p>
+            </div>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-slate-400">
-            Invite management will go here next.
+            {canManageServer && (
+              <button
+                type="button"
+                onClick={createInvite}
+                disabled={inviteCreating}
+                className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-500 disabled:opacity-50"
+              >
+                <Plus size={16} />
+                {inviteCreating ? "Creating..." : "Create Invite"}
+              </button>
+            )}
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
+                  Active Invites
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Anyone with an active invite link can join this server.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadInvites}
+                className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                <RefreshCw size={14} />
+                Refresh
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {invitesLoading ? (
+                <p className="text-sm text-slate-500">Loading invites...</p>
+              ) : invites.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+                  <p className="text-sm text-slate-500">
+                    No active invites yet.
+                  </p>
+                </div>
+              ) : (
+                invites.map((invite) => (
+                  <div
+                    key={invite._id}
+                    className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate font-mono text-sm font-bold text-white">
+                            {getInviteUrl(invite)}
+                          </p>
+
+                          <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-bold text-slate-400">
+                            {invite.code || invite.inviteCode || invite._id}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                          <span>{formatInviteUses(invite)}</span>
+                          <span>{formatInviteExpiry(invite)}</span>
+                          {invite.createdBy?.username && (
+                            <span>Created by {invite.createdBy.username}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => copyInvite(invite)}
+                          className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+                        >
+                          <Copy size={14} />
+                          Copy
+                        </button>
+
+                        {canManageServer && (
+                          <button
+                            type="button"
+                            onClick={() => revokeInvite(invite)}
+                            className="flex items-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/10"
+                          >
+                            <Trash2 size={14} />
+                            Revoke
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       );
@@ -1488,6 +1810,81 @@ async function assignRole(member, role, action) {
         >
           <X size={21} />
         </button>
+
+        {dialog && (
+          <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111827] p-5 text-white shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-black text-white">
+                    {dialog.title}
+                  </h3>
+
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-400">
+                    {dialog.message}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    closeDialog(dialog.type === "confirm" ? false : null)
+                  }
+                  className="rounded-lg p-1 text-slate-500 transition hover:bg-white/10 hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {dialog.type === "prompt" && (
+                <input
+                  value={dialogInput}
+                  onChange={(event) => setDialogInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") closeDialog(dialogInput);
+                    if (event.key === "Escape") closeDialog(null);
+                  }}
+                  autoFocus
+                  placeholder={dialog.placeholder}
+                  className="mt-5 w-full rounded-lg border border-white/10 bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-violet-500"
+                />
+              )}
+
+              <div className="mt-6 flex justify-end gap-3">
+                {dialog.type !== "alert" && (
+                  <button
+                    type="button"
+                    onClick={() => closeDialog(null)}
+                    className="rounded-lg border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white"
+                  >
+                    {dialog.cancelText || "Cancel"}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    closeDialog(
+                      dialog.type === "prompt"
+                        ? dialogInput
+                        : dialog.type === "confirm"
+                        ? true
+                        : true
+                    )
+                  }
+                  className={`rounded-lg px-4 py-2 text-sm font-bold text-white transition ${
+                    dialog.danger
+                      ? "bg-red-600 hover:bg-red-500"
+                      : "bg-violet-600 hover:bg-violet-500"
+                  }`}
+                >
+                  {dialog.confirmText ||
+                    (dialog.type === "alert" ? "OK" : "Confirm")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
