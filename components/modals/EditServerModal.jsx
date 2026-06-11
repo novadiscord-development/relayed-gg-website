@@ -26,6 +26,7 @@ const tabs = [
   { id: "roles", label: "Roles", icon: Shield },
   { id: "invites", label: "Invites", icon: Link2 },
   { id: "bans", label: "Bans", icon: Ban },
+  { id: "audit", label: "Audit Logs", icon: ShieldCheck },
 ];
 
 const systemRoles = ["admin", "moderator", "member"];
