@@ -458,7 +458,7 @@ export default function UserProfilePopout({
 
           <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-[#0f172a]/80" />
 
-          <div className="absolute z-[200] right-4 top-4 flex gap-2">
+          <div className="absolute right-4 top-4 flex gap-2">
             {canModerate && (
               <div className="relative">
                 <button
@@ -471,7 +471,7 @@ export default function UserProfilePopout({
                 </button>
 
                 {moderationOpen && (
-                  <div className="absolute right-0 top-12 z-50 w-48 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
+                  <div className="absolute right-0 top-12 z-[1000] w-48 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
                     <button
                       type="button"
                       onClick={timeoutMember}
