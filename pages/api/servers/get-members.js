@@ -4,6 +4,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import User from "@/models/User";
+import Role from "@/models/Role";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
