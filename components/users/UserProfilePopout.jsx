@@ -444,9 +444,9 @@ export default function UserProfilePopout({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[440px] overflow-hidden rounded-[28px] border border-white/10 bg-[#0f172a] text-white shadow-[0_25px_90px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300"
+        className="relative w-full max-w-[440px] overflow-visible rounded-[28px] border border-white/10 bg-[#0f172a] text-white shadow-[0_25px_90px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300"
       >
-        <div className="relative h-36 overflow-hidden bg-gradient-to-br from-violet-700 via-fuchsia-600 to-cyan-500">
+<div className="relative h-36 overflow-hidden rounded-t-[28px] bg-gradient-to-br from-violet-700 via-fuchsia-600 to-cyan-500">
           {user.banner && (
             <Image
               src={user.banner}
@@ -471,7 +471,7 @@ export default function UserProfilePopout({
                 </button>
 
                 {moderationOpen && (
-                  <div className="absolute right-0 top-12 z-[1000] w-48 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
+                  <div className="absolute right-0 top-12 z-[10000] w-56 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
                     <button
                       type="button"
                       onClick={timeoutMember}
