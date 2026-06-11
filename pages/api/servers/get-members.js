@@ -34,13 +34,19 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You are not in this server" });
     }
 
-    const members = await Member.find({ serverId })
-      .populate("userId", "username avatar isStaff isAdmin badges")
-      .sort({
-        role: 1,
-        createdAt: 1,
-      });
-
+const members = await Member.find({ serverId })
+  .populate(
+    "userId",
+    "username avatar image isStaff isAdmin badges"
+  )
+  .populate(
+    "roles",
+    "name color position permissions"
+  )
+  .sort({
+    role: 1,
+    createdAt: 1,
+  });
     return res.status(200).json({
       members,
       currentMember,

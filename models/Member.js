@@ -20,6 +20,13 @@ const MemberSchema = new mongoose.Schema(
       default: "member",
     },
 
+    roles: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Role",
+      },
+    ],
+
     nickname: {
       type: String,
       default: "",

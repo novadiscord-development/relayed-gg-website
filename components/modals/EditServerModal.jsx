@@ -17,8 +17,10 @@ import {
   Trash2,
   ArrowRightLeft,
   Clock3,
-ShieldCheck,
-ShieldAlert,
+  ShieldCheck,
+  ShieldAlert,
+  Plus,
+  Pencil,
 } from "lucide-react";
 
 const tabs = [
@@ -55,6 +57,15 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
 
+  const [roles, setRoles] = useState([]);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [roleSaving, setRoleSaving] = useState(false);
+  const [roleForm, setRoleForm] = useState({
+    name: "",
+    color: "#99aab5",
+    permissions: {},
+  });
+
   useEffect(() => {
     setName(server?.name || "");
     setIcon(server?.icon || "");
@@ -69,6 +80,10 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
   useEffect(() => {
     if (activeTab === "bans" && server?._id) loadBans();
+  }, [activeTab, server?._id]);
+
+  useEffect(() => {
+    if (activeTab === "roles" && server?._id) loadRoles();
   }, [activeTab, server?._id]);
 
   async function loadMembers() {
@@ -172,6 +187,148 @@ async function loadAuditLogs() {
   }
 
   setAuditLoading(false);
+}
+
+async function loadRoles() {
+  const res = await fetch(`/api/roles/get?serverId=${server._id}`);
+  const data = await res.json();
+
+  if (res.ok) {
+    setRoles(data.roles || []);
+  }
+}
+
+async function createRole() {
+  const roleName = prompt("Role name", "New Role");
+
+  if (!roleName?.trim()) return;
+
+  const res = await fetch("/api/roles/create", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverId: server._id,
+      name: roleName.trim(),
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.message || "Failed to create role");
+    return;
+  }
+
+  await loadRoles();
+}
+
+function editRole(role) {
+  setSelectedRole(role);
+  setRoleForm({
+    name: role.name || "",
+    color: role.color || "#99aab5",
+    permissions: {
+      ...(role.permissions || {}),
+    },
+  });
+  setActiveTab("role-editor");
+}
+
+function updateRolePermission(permission, value) {
+  setRoleForm((prev) => ({
+    ...prev,
+    permissions: {
+      ...prev.permissions,
+      [permission]: value,
+    },
+  }));
+}
+
+async function saveRole() {
+  if (!selectedRole || roleSaving) return;
+
+  setRoleSaving(true);
+
+  const res = await fetch("/api/roles/update", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverId: server._id,
+      roleId: selectedRole._id,
+      name: roleForm.name,
+      color: roleForm.color,
+      permissions: roleForm.permissions,
+    }),
+  });
+
+  const data = await res.json();
+  setRoleSaving(false);
+
+  if (!res.ok) {
+    alert(data.message || "Failed to save role");
+    return;
+  }
+
+  setSelectedRole(data.role);
+  await loadRoles();
+  setActiveTab("roles");
+}
+
+async function deleteRole(role) {
+  const confirmed = confirm(`Delete role "${role.name}"?`);
+
+  if (!confirmed) return;
+
+  const res = await fetch("/api/roles/delete", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverId: server._id,
+      roleId: role._id,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.message || "Failed to delete role");
+    return;
+  }
+
+  await loadRoles();
+  await loadMembers();
+}
+
+async function assignRole(member, role, action) {
+  const res = await fetch("/api/roles/assign", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverId: server._id,
+      memberId: member._id,
+      roleId: role._id,
+      action,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.message || "Failed to update member role");
+    return;
+  }
+
+  setMembers((prev) =>
+    prev.map((item) => (item._id === data.member._id ? data.member : item))
+  );
 }
 
   async function uploadImage(file, type) {
@@ -634,6 +791,23 @@ async function loadAuditLogs() {
                         <p className="text-xs capitalize text-slate-500">
                           {member.role}
                         </p>
+
+                        {member.roles?.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {member.roles.map((role) => (
+                              <span
+                                key={role._id}
+                                className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+                                style={{
+                                  backgroundColor: `${role.color || "#99aab5"}22`,
+                                  color: role.color || "#cbd5e1",
+                                }}
+                              >
+                                {role.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -684,6 +858,52 @@ async function loadAuditLogs() {
                               {role}
                             </button>
                           ))}
+
+                          {roles.length > 0 && (
+                            <>
+                              <div className="my-1 h-px bg-white/10" />
+
+                              <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase text-slate-500">
+                                Custom Roles
+                              </p>
+
+                              {roles.map((role) => {
+                                const hasRole = member.roles?.some(
+                                  (memberRole) => memberRole._id === role._id
+                                );
+
+                                return (
+                                  <button
+                                    key={role._id}
+                                    onClick={() =>
+                                      assignRole(
+                                        member,
+                                        role,
+                                        hasRole ? "remove" : "add"
+                                      )
+                                    }
+                                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
+                                      hasRole
+                                        ? "bg-white/[0.06] text-white"
+                                        : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
+                                    }`}
+                                  >
+                                    <span className="flex min-w-0 items-center gap-2">
+                                      <span
+                                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                        style={{ backgroundColor: role.color }}
+                                      />
+                                      <span className="truncate">{role.name}</span>
+                                    </span>
+
+                                    <span className="text-xs text-slate-500">
+                                      {hasRole ? "Remove" : "Add"}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </>
+                          )}
 
                           <div className="my-1 h-px bg-white/10" />
 
@@ -741,10 +961,23 @@ async function loadAuditLogs() {
     if (activeTab === "roles") {
       return (
         <div>
-          <h2 className="text-2xl font-black text-white">Roles</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Custom roles and permissions will be added here later.
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black text-white">Roles</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Manage custom roles, colors, and permissions.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={createRole}
+              className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-500"
+            >
+              <Plus size={16} />
+              Create Role
+            </button>
+          </div>
 
           <div className="mt-6 space-y-3">
             {["Owner", "Admin", "Moderator", "Member"].map((role) => (
@@ -754,7 +987,7 @@ async function loadAuditLogs() {
               >
                 <div>
                   <p className="font-bold text-white">{role}</p>
-                  <p className="text-xs text-slate-500">Default system role</p>
+                  <p className="text-xs text-slate-500">Built-in system role</p>
                 </div>
 
                 <span className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-500">
@@ -762,6 +995,232 @@ async function loadAuditLogs() {
                 </span>
               </div>
             ))}
+
+            {roles.map((role) => (
+              <div
+                key={role._id}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className="h-4 w-4 shrink-0 rounded-full border border-white/10"
+                      style={{ backgroundColor: role.color || "#99aab5" }}
+                    />
+
+                    <div className="min-w-0">
+                      <p
+                        className="truncate font-bold"
+                        style={{ color: role.color || "#ffffff" }}
+                      >
+                        {role.name}
+                      </p>
+
+                      <p className="text-xs text-slate-500">
+                        Position #{role.position}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => editRole(role)}
+                      className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 transition hover:bg-white/10 hover:text-white"
+                    >
+                      <Pencil size={14} />
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteRole(role)}
+                      className="flex items-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-400 transition hover:bg-red-500/10"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {Object.entries(role.permissions || {})
+                    .filter(([, value]) => value)
+                    .map(([permission]) => (
+                      <span
+                        key={permission}
+                        className="rounded-lg bg-violet-500/10 px-2 py-1 text-[11px] font-bold text-violet-300"
+                      >
+                        {permission}
+                      </span>
+                    ))}
+
+                  {Object.values(role.permissions || {}).filter(Boolean).length ===
+                    0 && (
+                    <span className="text-xs text-slate-600">
+                      No extra permissions enabled.
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {roles.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center">
+                <p className="text-sm text-slate-500">
+                  No custom roles created yet.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (activeTab === "role-editor") {
+      const permissions = [
+        ["manageServer", "Manage Server"],
+        ["manageChannels", "Manage Channels"],
+        ["manageRoles", "Manage Roles"],
+        ["kickMembers", "Kick Members"],
+        ["banMembers", "Ban Members"],
+        ["timeoutMembers", "Timeout Members"],
+        ["manageMessages", "Manage Messages"],
+        ["mentionEveryone", "Mention Everyone"],
+        ["sendMessages", "Send Messages"],
+        ["attachFiles", "Attach Files"],
+        ["viewChannels", "View Channels"],
+      ];
+
+      return (
+        <div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("roles")}
+            className="mb-5 text-sm font-bold text-slate-400 hover:text-white"
+          >
+            ← Back to Roles
+          </button>
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black text-white">
+                Edit Role
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Update the role name, color, and permissions.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={saveRole}
+              disabled={roleSaving}
+              className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-500 disabled:opacity-50"
+            >
+              <Save size={16} />
+              {roleSaving ? "Saving..." : "Save Role"}
+            </button>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <label className="mb-2 block text-xs font-black uppercase text-slate-400">
+              Role Name
+            </label>
+
+            <input
+              value={roleForm.name}
+              onChange={(e) =>
+                setRoleForm((prev) => ({
+                  ...prev,
+                  name: e.target.value,
+                }))
+              }
+              maxLength={40}
+              className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-violet-500"
+            />
+
+            <label className="mb-2 mt-5 block text-xs font-black uppercase text-slate-400">
+              Role Color
+            </label>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={roleForm.color}
+                onChange={(e) =>
+                  setRoleForm((prev) => ({
+                    ...prev,
+                    color: e.target.value,
+                  }))
+                }
+                className="h-11 w-16 cursor-pointer rounded border border-white/10 bg-[#1e1f22]"
+              />
+
+              <input
+                value={roleForm.color}
+                onChange={(e) =>
+                  setRoleForm((prev) => ({
+                    ...prev,
+                    color: e.target.value,
+                  }))
+                }
+                className="w-32 rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-violet-500"
+              />
+
+              <span
+                className="rounded-lg px-3 py-2 text-sm font-bold"
+                style={{
+                  backgroundColor: `${roleForm.color}22`,
+                  color: roleForm.color,
+                }}
+              >
+                Preview
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <h3 className="text-sm font-black uppercase tracking-wide text-slate-400">
+              Permissions
+            </h3>
+
+            <div className="mt-4 divide-y divide-white/10">
+              {permissions.map(([key, label]) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between gap-4 py-4"
+                >
+                  <div>
+                    <p className="font-bold text-white">{label}</p>
+                    <p className="text-xs text-slate-500">
+                      {key}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateRolePermission(
+                        key,
+                        !Boolean(roleForm.permissions?.[key])
+                      )
+                    }
+                    className={`relative h-6 w-11 rounded-full transition ${
+                      roleForm.permissions?.[key]
+                        ? "bg-violet-600"
+                        : "bg-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
+                        roleForm.permissions?.[key] ? "left-6" : "left-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       );
