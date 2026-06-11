@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import UserProfilePopout from "@/components/users/UserProfilePopout";
@@ -8,6 +8,7 @@ export default function MemberSidebar() {
   const { serverId } = router.query;
 
   const [members, setMembers] = useState([]);
+  const [currentMember, setCurrentMember] = useState(null);
   const [presences, setPresences] = useState({});
   const [search, setSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState(null);
@@ -26,7 +27,10 @@ export default function MemberSidebar() {
     const res = await fetch(`/api/members/get-members?serverId=${serverId}`);
     const data = await res.json();
 
-    setMembers(data.members || []);
+    if (res.ok) {
+      setMembers(data.members || []);
+      setCurrentMember(data.currentMember || null);
+    }
   }
 
   async function loadPresence() {
@@ -67,37 +71,101 @@ export default function MemberSidebar() {
     return "bg-slate-600";
   }
 
+  function getHighestRole(member) {
+    if (member.role === "owner") {
+      return {
+        name: "Owner",
+        color: "#facc15",
+        position: 999999,
+        system: true,
+      };
+    }
+
+    const roles = member.roles || [];
+
+    if (!roles.length) {
+      return null;
+    }
+
+    return [...roles].sort((a, b) => (b.position || 0) - (a.position || 0))[0];
+  }
+
+  function getDisplayNameColor(member) {
+    return getHighestRole(member)?.color || null;
+  }
+
+  function getGroupName(member) {
+    const highestRole = getHighestRole(member);
+
+    if (highestRole) {
+      return highestRole.name;
+    }
+
+    const status = getStatus(member.userId?._id);
+    return status === "offline" ? "Offline" : "Online";
+  }
+
   const filteredMembers = members.filter((member) =>
     member.userId?.username?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const ownerMembers = filteredMembers.filter((m) => m.role === "owner");
-  const adminMembers = filteredMembers.filter((m) => m.role === "admin");
-  const moderatorMembers = filteredMembers.filter((m) => m.role === "moderator");
-  const onlineMembers = filteredMembers.filter(
-    (m) => m.role === "member" && getStatus(m.userId?._id) !== "offline"
-  );
-  const offlineMembers = filteredMembers.filter(
-    (m) => m.role === "member" && getStatus(m.userId?._id) === "offline"
-  );
+  const groupedMembers = useMemo(() => {
+    const groups = new Map();
+
+    filteredMembers.forEach((member) => {
+      const groupName = getGroupName(member);
+      const highestRole = getHighestRole(member);
+
+      if (!groups.has(groupName)) {
+        groups.set(groupName, {
+          name: groupName,
+          color: highestRole?.color || null,
+          position:
+            highestRole?.position ??
+            (groupName === "Online" ? -1 : -2),
+          members: [],
+        });
+      }
+
+      groups.get(groupName).members.push(member);
+    });
+
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        members: group.members.sort((a, b) => {
+          const aOffline = getStatus(a.userId?._id) === "offline";
+          const bOffline = getStatus(b.userId?._id) === "offline";
+
+          if (aOffline !== bOffline) return aOffline ? 1 : -1;
+
+          return (a.userId?.username || "").localeCompare(
+            b.userId?.username || ""
+          );
+        }),
+      }))
+      .sort((a, b) => b.position - a.position);
+  }, [filteredMembers, presences]);
 
   function MemberItem({ member }) {
     const user = member.userId;
     const status = getStatus(user?._id);
+    const highestRole = getHighestRole(member);
+    const nameColor = getDisplayNameColor(member);
 
     return (
       <button
         type="button"
         onClick={() => setSelectedMember(member)}
-        className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.04]"
+        className="group flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.04]"
       >
         <div className="relative shrink-0">
           <Image
-            src={user?.avatar || "/logo.png"}
+            src={user?.avatar || user?.image || "/logo.png"}
             alt={user?.username || "User"}
             width={38}
             height={38}
-            className={`h-[38px] w-[38px] rounded-full ${
+            className={`h-[38px] w-[38px] rounded-full object-cover ${
               status === "offline" ? "opacity-45 grayscale" : ""
             }`}
           />
@@ -109,11 +177,12 @@ export default function MemberSidebar() {
           />
         </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p
             className={`truncate text-sm font-bold ${
               status === "offline" ? "text-slate-500" : "text-slate-200"
             }`}
+            style={nameColor && status !== "offline" ? { color: nameColor } : undefined}
           >
             {user?.username || "Unknown User"}
 
@@ -133,22 +202,61 @@ export default function MemberSidebar() {
           <p className="truncate text-xs text-slate-500">
             {getDisplayStatus(user?._id)}
           </p>
+
+          {member.roles?.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {member.roles.slice(0, 2).map((role) => (
+                <span
+                  key={role._id}
+                  className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+                  style={{
+                    backgroundColor: `${role.color || "#99aab5"}22`,
+                    color: role.color || "#cbd5e1",
+                  }}
+                >
+                  {role.name}
+                </span>
+              ))}
+
+              {member.roles.length > 2 && (
+                <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-slate-400">
+                  +{member.roles.length - 2}
+                </span>
+              )}
+            </div>
+          )}
         </div>
+
+        {highestRole && (
+          <span
+            className="hidden h-2 w-2 shrink-0 rounded-full opacity-70 group-hover:opacity-100 sm:block"
+            style={{ backgroundColor: highestRole.color }}
+          />
+        )}
       </button>
     );
   }
 
-  function MemberGroup({ title, members }) {
-    if (!members.length) return null;
+  function MemberGroup({ group }) {
+    if (!group.members.length) return null;
 
     return (
       <div>
-        <h3 className="mb-3 text-xs font-bold uppercase text-slate-500">
-          {title} — {members.length}
+        <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+          {group.color && (
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: group.color }}
+            />
+          )}
+
+          <span>
+            {group.name} — {group.members.length}
+          </span>
         </h3>
 
         <div className="space-y-1">
-          {members.map((member) => (
+          {group.members.map((member) => (
             <MemberItem key={member._id} member={member} />
           ))}
         </div>
@@ -171,11 +279,13 @@ export default function MemberSidebar() {
         </div>
 
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-4">
-          <MemberGroup title="Owner" members={ownerMembers} />
-          <MemberGroup title="Admin" members={adminMembers} />
-          <MemberGroup title="Moderator" members={moderatorMembers} />
-          <MemberGroup title="Online" members={onlineMembers} />
-          <MemberGroup title="Offline" members={offlineMembers} />
+          {groupedMembers.length === 0 ? (
+            <p className="text-sm text-slate-500">No members found.</p>
+          ) : (
+            groupedMembers.map((group) => (
+              <MemberGroup key={group.name} group={group} />
+            ))
+          )}
         </div>
       </aside>
 
@@ -183,6 +293,8 @@ export default function MemberSidebar() {
         <UserProfilePopout
           user={selectedMember.userId}
           member={selectedMember}
+          currentMember={currentMember}
+          serverId={serverId}
           presence={getPresence(selectedMember.userId?._id)}
           onClose={() => setSelectedMember(null)}
         />
