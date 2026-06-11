@@ -691,14 +691,6 @@ export default function ChannelSidebar() {
               />
 
               <div className="absolute left-2 right-2 top-16 z-[9998] animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-150 overflow-hidden rounded-xl border border-white/10 bg-[#111827] p-2 shadow-[0_20px_60px_rgba(0,0,0,0.55)]">
-                <div className="mb-1 rounded-lg bg-white/[0.03] px-3 py-2">
-                  <p className="truncate text-sm font-black text-white">
-                    {server?.name || "Server"}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Server actions
-                  </p>
-                </div>
 
                 <button
                   onClick={handleInvitePeople}
