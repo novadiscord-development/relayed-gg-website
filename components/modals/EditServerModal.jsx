@@ -52,6 +52,7 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   const [memberSearch, setMemberSearch] = useState("");
   const [membersLoading, setMembersLoading] = useState(false);
   const [openMemberMenu, setOpenMemberMenu] = useState(null);
+  const [openRolePicker, setOpenRolePicker] = useState(null);
 
   const [bans, setBans] = useState([]);
   const [bansLoading, setBansLoading] = useState(false);
@@ -138,7 +139,9 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   }, [activeTab, server?._id]);
 
   useEffect(() => {
-    if (activeTab === "roles" && server?._id) loadRoles();
+    if ((activeTab === "roles" || activeTab === "members") && server?._id) {
+      loadRoles();
+    }
   }, [activeTab, server?._id]);
 
   useEffect(() => {
@@ -498,6 +501,8 @@ async function assignRole(member, role, action) {
   setMembers((prev) =>
     prev.map((item) => (item._id === data.member._id ? data.member : item))
   );
+
+  setOpenRolePicker(null);
 }
 
   async function uploadImage(file, type) {
@@ -1074,9 +1079,9 @@ async function assignRole(member, role, action) {
                           {member.role}
                         </p>
 
-                        {member.roles?.length > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {member.roles.map((role) => (
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          {member.roles?.length > 0 ? (
+                            member.roles.map((role) => (
                               <span
                                 key={role._id}
                                 className="rounded px-1.5 py-0.5 text-[10px] font-bold"
@@ -1087,8 +1092,109 @@ async function assignRole(member, role, action) {
                               >
                                 {role.name}
                               </span>
-                            ))}
-                          </div>
+                            ))
+                          ) : (
+                            <span className="text-[10px] font-semibold text-slate-600">
+                              No custom roles
+                            </span>
+                          )}
+
+                          {canManageRoles &&
+                            !memberIsOwner &&
+                            currentMember?._id !== member._id && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMemberMenu(null);
+                                  setOpenRolePicker(
+                                    openRolePicker === member._id
+                                      ? null
+                                      : member._id
+                                  );
+                                }}
+                                className="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-slate-400 transition hover:bg-violet-500/20 hover:text-violet-200"
+                                title="Assign roles"
+                              >
+                                <Plus size={12} />
+                              </button>
+                            )}
+                        </div>
+
+                        {openRolePicker === member._id && (
+                          <>
+                            <button
+                              className="fixed inset-0 z-[9998]"
+                              onClick={() => setOpenRolePicker(null)}
+                            />
+
+                            <div className="absolute left-16 top-[72px] z-[9999] w-72 overflow-hidden rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
+                              <div className="px-3 pb-2 pt-1">
+                                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                  Assign Roles
+                                </p>
+                                <p className="mt-1 truncate text-xs text-slate-400">
+                                  {user?.username || "Unknown User"}
+                                </p>
+                              </div>
+
+                              {roles.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-slate-500">
+                                  No custom roles created yet.
+                                </div>
+                              ) : (
+                                <div className="max-h-72 overflow-y-auto">
+                                  {roles.map((role) => {
+                                    const hasRole = member.roles?.some(
+                                      (memberRole) => memberRole._id === role._id
+                                    );
+
+                                    return (
+                                      <button
+                                        key={role._id}
+                                        type="button"
+                                        onClick={() =>
+                                          assignRole(
+                                            member,
+                                            role,
+                                            hasRole ? "remove" : "add"
+                                          )
+                                        }
+                                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
+                                          hasRole
+                                            ? "bg-violet-500/10 text-white"
+                                            : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
+                                        }`}
+                                      >
+                                        <span className="flex min-w-0 items-center gap-2">
+                                          <span
+                                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                            style={{
+                                              backgroundColor:
+                                                role.color || "#99aab5",
+                                            }}
+                                          />
+                                          <span className="truncate">
+                                            {role.name}
+                                          </span>
+                                        </span>
+
+                                        <span
+                                          className={`flex h-5 w-5 items-center justify-center rounded-md border text-[11px] font-black ${
+                                            hasRole
+                                              ? "border-violet-400/40 bg-violet-500/20 text-violet-200"
+                                              : "border-white/10 text-slate-600"
+                                          }`}
+                                        >
+                                          {hasRole ? "✓" : "+"}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
@@ -1123,53 +1229,7 @@ async function assignRole(member, role, action) {
                         />
 
                         <div className="absolute right-4 top-14 z-[9999] w-56 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
-                          {canManageRoles && roles.length > 0 && (
-                            <>
-                              <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase text-slate-500">
-                                Custom Roles
-                              </p>
-
-                              {roles.map((role) => {
-                                const hasRole = member.roles?.some(
-                                  (memberRole) => memberRole._id === role._id
-                                );
-
-                                return (
-                                  <button
-                                    key={role._id}
-                                    onClick={() =>
-                                      assignRole(
-                                        member,
-                                        role,
-                                        hasRole ? "remove" : "add"
-                                      )
-                                    }
-                                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
-                                      hasRole
-                                        ? "bg-white/[0.06] text-white"
-                                        : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
-                                    }`}
-                                  >
-                                    <span className="flex min-w-0 items-center gap-2">
-                                      <span
-                                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                        style={{ backgroundColor: role.color }}
-                                      />
-                                      <span className="truncate">{role.name}</span>
-                                    </span>
-
-                                    <span className="text-xs text-slate-500">
-                                      {hasRole ? "Remove" : "Add"}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-
-                              <div className="my-1 h-px bg-white/10" />
-                            </>
-                          )}
-
-                          {isOwner && (
+                                                    {isOwner && (
                             <button
                               onClick={() => transferOwnership(member)}
                               className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-yellow-300 hover:bg-yellow-500/10"
@@ -1785,6 +1845,7 @@ async function assignRole(member, role, action) {
                   onClick={() => {
                     setActiveTab(tab.id);
                     setOpenMemberMenu(null);
+                    setOpenRolePicker(null);
                   }}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                     active
