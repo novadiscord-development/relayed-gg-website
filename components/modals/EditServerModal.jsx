@@ -18,6 +18,7 @@ import {
   ArrowRightLeft,
   Clock3,
 ShieldCheck,
+ShieldAlert,
 } from "lucide-react";
 
 const tabs = [
