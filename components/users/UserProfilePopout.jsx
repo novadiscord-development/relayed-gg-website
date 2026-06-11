@@ -456,7 +456,7 @@ export default function UserProfilePopout({
             />
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-[#0f172a]/80" />
+          <div className="absolute z-[200] inset-0 bg-gradient-to-b from-black/5 via-transparent to-[#0f172a]/80" />
 
           <div className="absolute right-4 top-4 flex gap-2">
             {canModerate && (
