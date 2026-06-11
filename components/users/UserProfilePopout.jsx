@@ -446,19 +446,21 @@ export default function UserProfilePopout({
         onMouseDown={(e) => e.stopPropagation()}
         className="relative w-full max-w-[440px] overflow-visible rounded-[28px] border border-white/10 bg-[#0f172a] text-white shadow-[0_25px_90px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300"
       >
-<div className="relative h-36 overflow-hidden rounded-t-[28px] bg-gradient-to-br from-violet-700 via-fuchsia-600 to-cyan-500">
-          {user.banner && (
-            <Image
-              src={user.banner}
-              alt=""
-              fill
-              className="object-cover"
-            />
-          )}
+<div className="relative h-36 overflow-visible rounded-t-[28px]">
+          <div className="absolute inset-0 overflow-hidden rounded-t-[28px] bg-gradient-to-br from-violet-700 via-fuchsia-600 to-cyan-500">
+            {user.banner && (
+              <Image
+                src={user.banner}
+                alt=""
+                fill
+                className="object-cover"
+              />
+            )}
 
-          <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-[#0f172a]/80" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-[#0f172a]/80" />
+          </div>
 
-          <div className="absolute right-4 top-4 flex gap-2">
+          <div className="absolute right-4 top-4 z-[10001] flex gap-2">
             {canModerate && (
               <div className="relative">
                 <button
