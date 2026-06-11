@@ -781,95 +781,93 @@ async function loadAuditLogs() {
       );
     }
 
-if (activeTab === "audit") {
-  return (
-    <div>
-      <div className="flex items-start justify-between gap-6">
+    if (activeTab === "audit") {
+      return (
         <div>
-          <h2 className="text-2xl font-black text-white">Audit Log</h2>
+          <div className="flex items-start justify-between gap-6">
+            <h2 className="text-2xl font-black text-white">Audit Log</h2>
+
+            <div className="flex gap-4">
+              <div>
+                <label className="mb-2 block text-sm font-bold text-slate-200">
+                  Filter by User
+                </label>
+                <select className="w-56 rounded-lg border border-white/10 bg-[#2b2d35] px-4 py-3 text-white outline-none">
+                  <option>All Users</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-bold text-slate-200">
+                  Filter by Action
+                </label>
+                <select className="w-56 rounded-lg border border-white/10 bg-[#2b2d35] px-4 py-3 text-white outline-none">
+                  <option>All Actions</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-white/10 pt-5">
+            {auditLoading ? (
+              <p className="text-sm text-slate-500">Loading audit logs...</p>
+            ) : auditLogs.length === 0 ? (
+              <p className="text-sm text-slate-500">No audit logs found.</p>
+            ) : (
+              <div className="space-y-2">
+                {auditLogs.map((log) => {
+                  const actor = log.actorId;
+                  const target = log.targetUserId;
+                  const actorName = actor?.username || "Unknown User";
+                  const targetName = target?.username;
+                  const action = log.action.replaceAll("_", " ").toLowerCase();
+
+                  return (
+                    <div
+                      key={log._id}
+                      className="rounded-xl border border-white/5 bg-[#2f313a] transition hover:bg-[#363844]"
+                    >
+                      <div className="flex items-center gap-4 px-5 py-4">
+                        <img
+                          src={actor?.avatar}
+                          alt={actorName}
+                          className="h-10 w-10 shrink-0 rounded-full object-cover"
+                        />
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[15px] font-semibold text-white">
+                            <span>{actorName}</span>{" "}
+                            <span className="font-normal text-slate-200">
+                              {action}
+                            </span>{" "}
+                            {targetName && <span>{targetName}</span>}
+                          </p>
+
+                          <p className="mt-0.5 text-sm text-slate-400">
+                            {new Date(log.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {log.reason && (
+                        <div className="border-t border-white/5 px-16 pb-4 pt-2">
+                          <p className="text-sm text-slate-400">
+                            <span className="font-bold text-slate-300">
+                              Reason:
+                            </span>{" "}
+                            {log.reason}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
-
-        <div className="flex gap-4">
-          <div>
-            <label className="mb-2 block text-sm font-bold text-slate-200">
-              Filter by User
-            </label>
-            <select className="w-56 rounded-lg border border-white/10 bg-[#2b2d35] px-4 py-3 text-white outline-none">
-              <option>All Users</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-bold text-slate-200">
-              Filter by Action
-            </label>
-            <select className="w-56 rounded-lg border border-white/10 bg-[#2b2d35] px-4 py-3 text-white outline-none">
-              <option>All Actions</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 border-t border-white/10 pt-5">
-        {auditLoading ? (
-          <p className="text-sm text-slate-500">Loading audit logs...</p>
-        ) : auditLogs.length === 0 ? (
-          <p className="text-sm text-slate-500">No audit logs found.</p>
-        ) : (
-          <div className="space-y-2">
-            {auditLogs.map((log) => {
-              const actor = log.actorId?.username || "Unknown User";
-              const target = log.targetUserId?.username;
-              const action = log.action.replaceAll("_", " ").toLowerCase();
-
-              return (
-                <div
-                  key={log._id}
-                  className="group rounded-xl border border-white/5 bg-[#2f313a] transition hover:bg-[#363844]"
-                >
-                  <div className="flex items-center gap-4 px-5 py-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#5865f2] text-sm font-black text-white">
-                      {actor.charAt(0).toUpperCase()}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-semibold text-white">
-                        <span>{actor}</span>{" "}
-                        <span className="font-normal text-slate-200">
-                          {action}
-                        </span>{" "}
-                        {target && <span>{target}</span>}
-                      </p>
-
-                      <p className="mt-0.5 text-sm text-slate-400">
-                        {new Date(log.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-
-                    <span className="text-2xl text-slate-300 transition group-hover:text-white">
-                      ›
-                    </span>
-                  </div>
-
-                  {log.reason && (
-                    <div className="border-t border-white/5 px-16 pb-4 pt-2">
-                      <p className="text-sm text-slate-400">
-                        <span className="font-bold text-slate-300">
-                          Reason:
-                        </span>{" "}
-                        {log.reason}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+      );
+    }
 
     if (activeTab === "bans") {
       return (
