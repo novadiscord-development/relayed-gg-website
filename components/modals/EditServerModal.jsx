@@ -50,6 +50,8 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
 
   const [bans, setBans] = useState([]);
   const [bansLoading, setBansLoading] = useState(false);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   useEffect(() => {
     setName(server?.name || "");
@@ -146,6 +148,28 @@ async function removeTimeout(member) {
 
   setOpenMemberMenu(null);
   alert(`${member.userId?.username || "Member"}'s timeout was removed.`);
+}
+
+useEffect(() => {
+  if (activeTab === "audit" && server?._id) {
+    loadAuditLogs();
+  }
+}, [activeTab, server?._id]);
+
+async function loadAuditLogs() {
+  setAuditLoading(true);
+
+  const res = await fetch(
+    `/api/servers/audit-logs?serverId=${server._id}`
+  );
+
+  const data = await res.json();
+
+  if (res.ok) {
+    setAuditLogs(data.logs || []);
+  }
+
+  setAuditLoading(false);
 }
 
   async function uploadImage(file, type) {
@@ -755,6 +779,65 @@ async function removeTimeout(member) {
         </div>
       );
     }
+
+    if (activeTab === "audit") {
+  return (
+    <div>
+      <h2 className="text-2xl font-black text-white">
+        Audit Logs
+      </h2>
+
+      <p className="mt-1 text-sm text-slate-500">
+        Review moderation and server actions.
+      </p>
+
+      <div className="mt-6 space-y-3">
+        {auditLoading ? (
+          <p className="text-sm text-slate-500">
+            Loading audit logs...
+          </p>
+        ) : auditLogs.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            No audit logs found.
+          </p>
+        ) : (
+          auditLogs.map((log) => (
+            <div
+              key={log._id}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-bold text-white">
+                    {log.action.replaceAll("_", " ")}
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-400">
+                    {log.actorId?.username || "Unknown User"}
+
+                    {log.targetUserId?.username
+                      ? ` → ${log.targetUserId.username}`
+                      : ""}
+                  </p>
+
+                  {log.reason && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Reason: {log.reason}
+                    </p>
+                  )}
+                </div>
+
+                <span className="text-xs text-slate-600">
+                  {new Date(log.createdAt).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
     if (activeTab === "bans") {
       return (
