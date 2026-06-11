@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
+import AuditLog from "@/models/AuditLog";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
@@ -88,6 +89,13 @@ export default async function handler(req, res) {
         systemMessage
       );
     }
+
+    await AuditLog.create({
+      serverId,
+      action: "member_kick",
+      actorId: session.user.id,
+      targetUserId: targetMember.userId,
+    });
 
     return res.status(200).json({
       success: true,

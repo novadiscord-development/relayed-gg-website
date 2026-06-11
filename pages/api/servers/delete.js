@@ -9,6 +9,7 @@ import Message from "@/models/Message";
 import Invite from "@/models/Invite";
 import Notification from "@/models/Notification";
 import ServerBan from "@/models/ServerBan";
+import AuditLog from "@/models/AuditLog";
 
 export default async function handler(req, res) {
   if (req.method !== "DELETE") {

@@ -3,6 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
 import Server from "@/models/Server";
+import AuditLog from "@/models/AuditLog";
 import Member from "@/models/Member";
 
 export default async function handler(req, res) {
@@ -84,6 +85,13 @@ export default async function handler(req, res) {
     const refreshedCurrentMember = await Member.findOne({
       serverId,
       userId: session.user.id,
+    });
+
+    await AuditLog.create({
+      serverId,
+      action: "ownership_transfer",
+      actorId: session.user.id,
+      targetUserId: targetMember.userId,
     });
 
     return res.status(200).json({

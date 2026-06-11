@@ -4,6 +4,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import ServerBan from "@/models/ServerBan";
+import AuditLog from "@/models/AuditLog";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -41,6 +42,13 @@ export default async function handler(req, res) {
     }
 
     await ServerBan.findByIdAndDelete(ban._id);
+
+    await AuditLog.create({
+      serverId,
+      action: "member_unban",
+      actorId: session.user.id,
+      targetUserId: targetMember.userId,
+    });
 
     return res.status(200).json({
       success: true,

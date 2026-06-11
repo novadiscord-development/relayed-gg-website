@@ -3,6 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
+import AuditLog from "@/models/AuditLog";
 
 const allowedRoles = ["admin", "moderator", "member"];
 
@@ -56,6 +57,16 @@ export default async function handler(req, res) {
       "userId",
       "username avatar isStaff isAdmin badges"
     );
+
+    await AuditLog.create({
+      serverId,
+      action: "role_update",
+      actorId: session.user.id,
+      targetUserId: member.userId,
+      metadata: {
+        role,
+      },
+    });
 
     return res.status(200).json({
       member: updatedMember,

@@ -4,6 +4,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Server from "@/models/Server";
 import Member from "@/models/Member";
+import AuditLog from "@/models/AuditLog";
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -73,6 +74,16 @@ export default async function handler(req, res) {
     }
 
     await server.save();
+
+    await AuditLog.create({
+      serverId,
+      action: "server_update",
+      actorId: session.user.id,
+      metadata: {
+        name,
+        description,
+      },
+    });
 
     return res.status(200).json({ server });
   } catch (error) {

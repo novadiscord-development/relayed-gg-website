@@ -8,6 +8,7 @@ import Message from "@/models/Message";
 import User from "@/models/User";
 import ServerBan from "@/models/ServerBan";
 import { pusherServer } from "@/lib/pusher";
+import AuditLog from "@/models/AuditLog";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -107,6 +108,13 @@ export default async function handler(req, res) {
         systemMessage
       );
     }
+
+    await AuditLog.create({
+      serverId,
+      action: "member_ban",
+      actorId: session.user.id,
+      targetUserId: targetMember.userId,
+    });
 
     return res.status(200).json({
       success: true,
