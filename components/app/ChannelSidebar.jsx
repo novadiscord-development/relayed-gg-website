@@ -38,13 +38,32 @@ function normalizeId(value) {
   return value.toString();
 }
 
+function moveItem(items, fromIndex, toIndex) {
+  const next = [...items];
+  const [removed] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, removed);
+  return next;
+}
+
+function memberHasPermission(member, permission) {
+  if (!member) return false;
+
+  if (member.role === "owner") return true;
+
+  if (member.permissions?.[permission]) return true;
+
+  return member.roles?.some((role) => role.permissions?.[permission]) || false;
+}
+
 function DropZone({ id, children, className = "" }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
     <div
       ref={setNodeRef}
-      className={`${className} ${isOver ? "rounded-lg bg-violet-500/10" : ""}`}
+      className={`${className} ${
+        isOver ? "rounded-lg bg-violet-500/10 ring-1 ring-violet-500/20" : ""
+      }`}
     >
       {children}
     </div>
@@ -88,7 +107,7 @@ function SortableChannel({
       {...listeners}
       onContextMenu={(e) => onOpenMenu(e, channel)}
       onClick={onClick}
-      className={`group flex w-full items-center gap-2 rounded-md px-2 py-1 text-sm transition ${
+      className={`group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition ${
         isDragging
           ? "opacity-40"
           : active
@@ -119,6 +138,62 @@ function SortableChannel({
         <span className="ml-auto h-2 w-2 rounded-full bg-white" />
       ) : null}
     </button>
+  );
+}
+
+function SortableCategoryBlock({ category, children, onOpenMenu, onAdd }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: category._id,
+    data: {
+      type: "category",
+      channel: category,
+    },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={isDragging ? "opacity-40" : ""}
+    >
+      <div
+        onContextMenu={(e) => onOpenMenu(e, category)}
+        className="mb-1 flex items-center justify-between px-2"
+      >
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="flex min-w-0 items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 transition hover:text-slate-300"
+        >
+          <ChevronDown size={12} className="shrink-0" />
+          <span className="truncate">{category.name}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onAdd}
+          title="Create channel"
+          className="rounded p-1 text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
+        >
+          <Plus size={13} />
+        </button>
+      </div>
+
+      <DropZone id={`category:${category._id}`} className="min-h-[24px] rounded-lg">
+        {children}
+      </DropZone>
+    </div>
   );
 }
 
@@ -208,19 +283,12 @@ export default function ChannelSidebar() {
   }
 
   const isOwner = membership?.role === "owner";
+  const canManageServer = memberHasPermission(membership, "manageServer");
 
-  const categories = useMemo(
+  const topLevelItems = useMemo(
     () =>
       channels
-        .filter((channel) => channel.type === "category")
-        .sort((a, b) => a.position - b.position),
-    [channels]
-  );
-
-  const uncategorizedChannels = useMemo(
-    () =>
-      channels
-        .filter((channel) => channel.type !== "category" && !channel.parentId)
+        .filter((channel) => !channel.parentId)
         .sort((a, b) => a.position - b.position),
     [channels]
   );
@@ -271,6 +339,7 @@ export default function ChannelSidebar() {
   }
 
   function handleEditServer() {
+    if (!canManageServer) return;
     setServerMenuOpen(false);
     setShowEditServerModal(true);
   }
@@ -338,9 +407,9 @@ export default function ChannelSidebar() {
     setContextMenu(null);
 
     const confirmed = confirm(
-      `Delete ${channel.type === "category" ? "category" : "channel"} "${
+      `Delete ${channel.type === "category" ? "category" : "channel"} \"${
         channel.name
-      }"?`
+      }\"?`
     );
 
     if (!confirmed) return;
@@ -389,11 +458,6 @@ export default function ChannelSidebar() {
     }
   }
 
-  function getContainerId(channel) {
-    if (channel.parentId) return `category:${channel.parentId}`;
-    return "uncategorized";
-  }
-
   function getParentIdFromContainer(containerId) {
     if (containerId?.startsWith("category:")) {
       return containerId.replace("category:", "");
@@ -416,7 +480,24 @@ export default function ChannelSidebar() {
     const channel = findChannel(id);
     if (!channel) return null;
 
-    return getContainerId(channel);
+    if (channel.type === "category") return "uncategorized";
+    if (channel.parentId) return `category:${channel.parentId}`;
+
+    return "uncategorized";
+  }
+
+  function applyPositions(baseChannels, orderedItems, parentId) {
+    return baseChannels.map((channel) => {
+      const index = orderedItems.findIndex((item) => item._id === channel._id);
+
+      if (index === -1) return channel;
+
+      return {
+        ...channel,
+        parentId: parentId || null,
+        position: index,
+      };
+    });
   }
 
   async function saveOrder(nextChannels) {
@@ -427,10 +508,10 @@ export default function ChannelSidebar() {
       },
       body: JSON.stringify({
         serverId,
-        channels: nextChannels.map((channel, index) => ({
+        channels: nextChannels.map((channel) => ({
           _id: channel._id,
           parentId: channel.parentId || null,
-          position: index,
+          position: channel.position,
         })),
       }),
     });
@@ -451,16 +532,41 @@ export default function ChannelSidebar() {
     if (!over) return;
 
     const activeChannel = findChannel(active.id);
-    if (!activeChannel || activeChannel.type === "category") return;
+    if (!activeChannel) return;
 
     const overChannel = findChannel(over.id);
     const overContainer = findContainer(over.id);
 
     if (!overContainer) return;
 
+    let nextChannels = [...channels];
+
+    if (activeChannel.type === "category") {
+      const topItems = nextChannels
+        .filter((channel) => !channel.parentId)
+        .sort((a, b) => a.position - b.position);
+
+      const activeIndex = topItems.findIndex(
+        (channel) => channel._id === activeChannel._id
+      );
+
+      const overIndex = overChannel && !overChannel.parentId
+        ? topItems.findIndex((channel) => channel._id === overChannel._id)
+        : topItems.length - 1;
+
+      if (activeIndex === -1 || overIndex === -1) return;
+
+      const reorderedTopItems = moveItem(topItems, activeIndex, overIndex);
+      nextChannels = applyPositions(nextChannels, reorderedTopItems, null);
+
+      setChannels(nextChannels);
+      await saveOrder(nextChannels);
+      return;
+    }
+
     const nextParentId = getParentIdFromContainer(overContainer);
 
-    let nextChannels = channels.map((channel) =>
+    nextChannels = nextChannels.map((channel) =>
       channel._id === activeChannel._id
         ? {
             ...channel,
@@ -469,43 +575,39 @@ export default function ChannelSidebar() {
         : channel
     );
 
-    const sameContainerChannels = nextChannels
-      .filter(
-        (channel) =>
-          channel.type !== "category" &&
-          normalizeId(channel.parentId) === normalizeId(nextParentId)
-      )
-      .sort((a, b) => a.position - b.position);
+    const scopeItems = nextParentId
+      ? nextChannels
+          .filter(
+            (channel) =>
+              channel.type !== "category" &&
+              normalizeId(channel.parentId) === normalizeId(nextParentId)
+          )
+          .sort((a, b) => a.position - b.position)
+      : nextChannels
+          .filter((channel) => !channel.parentId)
+          .sort((a, b) => a.position - b.position);
 
-    const activeIndex = sameContainerChannels.findIndex(
+    const activeIndex = scopeItems.findIndex(
       (channel) => channel._id === activeChannel._id
     );
 
-    let overIndex = sameContainerChannels.length - 1;
+    let overIndex = scopeItems.length - 1;
 
-    if (overChannel && overChannel.type !== "category") {
-      overIndex = sameContainerChannels.findIndex(
-        (channel) => channel._id === overChannel._id
-      );
+    if (overChannel) {
+      const overIsInSameScope = nextParentId
+        ? normalizeId(overChannel.parentId) === normalizeId(nextParentId)
+        : !overChannel.parentId;
+
+      if (overIsInSameScope) {
+        overIndex = scopeItems.findIndex(
+          (channel) => channel._id === overChannel._id
+        );
+      }
     }
 
     if (activeIndex !== -1 && overIndex !== -1) {
-      const reordered = [...sameContainerChannels];
-      const [removed] = reordered.splice(activeIndex, 1);
-      reordered.splice(overIndex, 0, removed);
-
-      nextChannels = nextChannels.map((channel) => {
-        const reorderedIndex = reordered.findIndex(
-          (item) => item._id === channel._id
-        );
-
-        if (reorderedIndex === -1) return channel;
-
-        return {
-          ...channel,
-          position: reorderedIndex,
-        };
-      });
+      const reorderedScopeItems = moveItem(scopeItems, activeIndex, overIndex);
+      nextChannels = applyPositions(nextChannels, reorderedScopeItems, nextParentId);
     }
 
     setChannels(nextChannels);
@@ -533,25 +635,31 @@ export default function ChannelSidebar() {
     );
   }
 
-  function renderCategoryHeader(category, onAdd) {
-    return (
-      <div
-        onContextMenu={(e) => openContextMenu(e, category)}
-        className="mb-1 flex items-center justify-between px-2"
-      >
-        <button className="flex min-w-0 items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 hover:text-slate-300">
-          <ChevronDown size={12} className="shrink-0" />
-          <span className="truncate">{category.name}</span>
-        </button>
+  function renderCategoryBlock(category) {
+    const categoryChannels = getCategoryChannels(category._id);
 
-        <button
-          onClick={onAdd}
-          title="Create channel"
-          className="text-slate-500 hover:text-white"
+    return (
+      <SortableCategoryBlock
+        key={category._id}
+        category={category}
+        onOpenMenu={openContextMenu}
+        onAdd={() => openCreateModal("text", category._id)}
+      >
+        <SortableContext
+          items={categoryChannels.map((channel) => channel._id)}
+          strategy={verticalListSortingStrategy}
         >
-          <Plus size={13} />
-        </button>
-      </div>
+          <div className="min-h-[24px] space-y-0.5 rounded-lg">
+            {categoryChannels.length === 0 ? (
+              <p className="px-2 py-1 text-xs text-slate-600">
+                Drop channels here
+              </p>
+            ) : (
+              categoryChannels.map(renderChannel)
+            )}
+          </div>
+        </SortableContext>
+      </SortableCategoryBlock>
     );
   }
 
@@ -569,7 +677,7 @@ export default function ChannelSidebar() {
 
             <ChevronDown
               size={18}
-              className={`shrink-0 text-slate-400 transition ${
+              className={`shrink-0 text-slate-400 transition duration-200 ${
                 serverMenuOpen ? "rotate-180" : ""
               }`}
             />
@@ -582,22 +690,33 @@ export default function ChannelSidebar() {
                 onClick={() => setServerMenuOpen(false)}
               />
 
-              <div className="absolute left-2 right-2 top-16 z-[9998] rounded-xl border border-white/10 bg-[#111827] p-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+              <div className="absolute left-2 right-2 top-16 z-[9998] animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-150 overflow-hidden rounded-xl border border-white/10 bg-[#111827] p-2 shadow-[0_20px_60px_rgba(0,0,0,0.55)]">
+                <div className="mb-1 rounded-lg bg-white/[0.03] px-3 py-2">
+                  <p className="truncate text-sm font-black text-white">
+                    {server?.name || "Server"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Server actions
+                  </p>
+                </div>
+
                 <button
                   onClick={handleInvitePeople}
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-violet-300 transition hover:bg-violet-500/10 hover:text-violet-200"
                 >
                   Invite People
                   <UserPlus size={16} />
                 </button>
 
-                <button
-                  onClick={handleEditServer}
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/[0.06] hover:text-white"
-                >
-                  Edit Server
-                  <Settings size={16} />
-                </button>
+                {canManageServer && (
+                  <button
+                    onClick={handleEditServer}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    Edit Server
+                    <Settings size={16} />
+                  </button>
+                )}
 
                 {!isOwner && (
                   <>
@@ -605,7 +724,7 @@ export default function ChannelSidebar() {
 
                     <button
                       onClick={handleLeaveServer}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 hover:text-red-300"
                     >
                       Leave Server
                       <LogOut size={16} />
@@ -636,62 +755,37 @@ export default function ChannelSidebar() {
               </div>
             )}
 
-            <div className="space-y-3">
-              <DropZone
-                id="uncategorized"
-                className="min-h-[34px] rounded-lg border border-dashed border-white/5 p-1"
+            <DropZone
+              id="uncategorized"
+              className="min-h-[calc(100%-42px)] rounded-lg border border-dashed border-transparent p-1"
+            >
+              <SortableContext
+                items={topLevelItems.map((channel) => channel._id)}
+                strategy={verticalListSortingStrategy}
               >
-                <SortableContext
-                  items={uncategorizedChannels.map((channel) => channel._id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-0.5">
-                    {uncategorizedChannels.length === 0 ? (
-                      <p className="px-2 py-1 text-xs text-slate-600">
-                        Drop here to remove from category
-                      </p>
-                    ) : (
-                      uncategorizedChannels.map(renderChannel)
-                    )}
-                  </div>
-                </SortableContext>
-              </DropZone>
-
-              {categories.map((category) => {
-                const categoryChannels = getCategoryChannels(category._id);
-
-                return (
-                  <DropZone key={category._id} id={`category:${category._id}`}>
-                    <div>
-                      {renderCategoryHeader(category, () =>
-                        openCreateModal("text", category._id)
-                      )}
-
-                      <SortableContext
-                        items={categoryChannels.map((channel) => channel._id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="min-h-[22px] space-y-0.5 rounded-lg">
-                          {categoryChannels.length === 0 ? (
-                            <p className="px-2 py-1 text-xs text-slate-600">
-                              Drop channels here
-                            </p>
-                          ) : (
-                            categoryChannels.map(renderChannel)
-                          )}
-                        </div>
-                      </SortableContext>
-                    </div>
-                  </DropZone>
-                );
-              })}
-            </div>
+                <div className="space-y-3">
+                  {topLevelItems.length === 0 ? (
+                    <p className="px-2 py-1 text-xs text-slate-600">
+                      Drop channels here
+                    </p>
+                  ) : (
+                    topLevelItems.map((item) =>
+                      item.type === "category"
+                        ? renderCategoryBlock(item)
+                        : renderChannel(item)
+                    )
+                  )}
+                </div>
+              </SortableContext>
+            </DropZone>
           </div>
 
           <DragOverlay>
             {activeDragChannel ? (
-              <div className="flex w-56 items-center gap-2 rounded-md bg-[#111827] px-2 py-1 text-sm text-white shadow-2xl">
-                {activeDragChannel.type === "voice" ? (
+              <div className="flex w-56 items-center gap-2 rounded-md bg-[#111827] px-2 py-1.5 text-sm text-white shadow-2xl">
+                {activeDragChannel.type === "category" ? (
+                  <ChevronDown size={17} />
+                ) : activeDragChannel.type === "voice" ? (
                   <Volume2 size={17} />
                 ) : (
                   <Hash size={17} />
