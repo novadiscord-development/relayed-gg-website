@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Server from "@/models/Server";
 import Member from "@/models/Member";
 import AuditLog from "@/models/AuditLog";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
       userId: session.user.id,
     });
 
-    if (!membership || !["owner", "admin"].includes(membership.role)) {
+    if (!membership || !(await hasPermission(membership, "manageServer"))) {
       return res.status(403).json({ message: "No permission" });
     }
 
@@ -40,6 +41,8 @@ export default async function handler(req, res) {
     if (!server) {
       return res.status(404).json({ message: "Server not found" });
     }
+
+    const metadata = {};
 
     if (typeof name === "string") {
       const cleanName = name.trim();
@@ -50,15 +53,21 @@ export default async function handler(req, res) {
         });
       }
 
+      metadata.previousName = server.name;
+      metadata.name = cleanName;
       server.name = cleanName;
     }
 
     if (typeof icon === "string") {
-      server.icon = icon.trim();
+      const cleanIcon = icon.trim();
+      metadata.iconChanged = server.icon !== cleanIcon;
+      server.icon = cleanIcon;
     }
 
     if (typeof banner === "string") {
-      server.banner = banner.trim();
+      const cleanBanner = banner.trim();
+      metadata.bannerChanged = server.banner !== cleanBanner;
+      server.banner = cleanBanner;
     }
 
     if (typeof description === "string") {
@@ -70,6 +79,7 @@ export default async function handler(req, res) {
         });
       }
 
+      metadata.description = cleanDescription;
       server.description = cleanDescription;
     }
 
@@ -79,10 +89,7 @@ export default async function handler(req, res) {
       serverId,
       action: "server_update",
       actorId: session.user.id,
-      metadata: {
-        name,
-        description,
-      },
+      metadata,
     });
 
     return res.status(200).json({ server });

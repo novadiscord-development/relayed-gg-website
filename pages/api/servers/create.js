@@ -6,6 +6,7 @@ import connectDB from "@/lib/mongodb";
 import Server from "@/models/Server";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
+import ensureEveryoneRole from "@/lib/ensureEveryoneRole";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -38,10 +39,13 @@ export default async function handler(req, res) {
       ownerId: session.user.id,
     });
 
+    await ensureEveryoneRole(server._id);
+
     await Member.create({
       serverId: server._id,
       userId: session.user.id,
       role: "owner",
+      roles: [],
     });
 
     const textCategory = await Channel.create({

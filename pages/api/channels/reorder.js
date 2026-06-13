@@ -4,6 +4,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -13,27 +14,41 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) return res.status(401).json({ message: "Unauthorized" });
+    if (!session?.user?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     await connectDB();
 
     const { serverId, channels } = req.body;
+
+    if (!serverId || !Array.isArray(channels)) {
+      return res.status(400).json({ message: "Invalid request" });
+    }
 
     const membership = await Member.findOne({
       serverId,
       userId: session.user.id,
     });
 
-    if (!membership || !["owner", "admin", "moderator"].includes(membership.role)) {
+    if (!membership || !(await hasPermission(membership, "manageChannels"))) {
       return res.status(403).json({ message: "No permission" });
     }
 
     await Promise.all(
       channels.map((channel, index) =>
-        Channel.findByIdAndUpdate(channel._id, {
-          parentId: channel.parentId || null,
-          position: index,
-        })
+        Channel.updateOne(
+          {
+            _id: channel._id,
+            serverId,
+          },
+          {
+            $set: {
+              parentId: channel.parentId || null,
+              position: index,
+            },
+          }
+        )
       )
     );
 

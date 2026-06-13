@@ -71,21 +71,14 @@ export default function MemberSidebar() {
     return "bg-slate-600";
   }
 
+  function getVisibleRoles(member) {
+    return (member?.roles || []).filter((role) => !role.isEveryone);
+  }
+
   function getHighestRole(member) {
-    if (member.role === "owner") {
-      return {
-        name: "Owner",
-        color: "#facc15",
-        position: 999999,
-        system: true,
-      };
-    }
+    const roles = getVisibleRoles(member);
 
-    const roles = member.roles || [];
-
-    if (!roles.length) {
-      return null;
-    }
+    if (!roles.length) return null;
 
     return [...roles].sort((a, b) => (b.position || 0) - (a.position || 0))[0];
   }
@@ -97,9 +90,7 @@ export default function MemberSidebar() {
   function getGroupName(member) {
     const highestRole = getHighestRole(member);
 
-    if (highestRole) {
-      return highestRole.name;
-    }
+    if (highestRole) return highestRole.name;
 
     const status = getStatus(member.userId?._id);
     return status === "offline" ? "Offline" : "Online";
@@ -120,9 +111,7 @@ export default function MemberSidebar() {
         groups.set(groupName, {
           name: groupName,
           color: highestRole?.color || null,
-          position:
-            highestRole?.position ??
-            (groupName === "Online" ? -1 : -2),
+          position: highestRole?.position ?? (groupName === "Online" ? -1 : -2),
           members: [],
         });
       }
@@ -139,6 +128,9 @@ export default function MemberSidebar() {
 
           if (aOffline !== bOffline) return aOffline ? 1 : -1;
 
+          if (a.role === "owner" && b.role !== "owner") return -1;
+          if (b.role === "owner" && a.role !== "owner") return 1;
+
           return (a.userId?.username || "").localeCompare(
             b.userId?.username || ""
           );
@@ -152,6 +144,7 @@ export default function MemberSidebar() {
     const status = getStatus(user?._id);
     const highestRole = getHighestRole(member);
     const nameColor = getDisplayNameColor(member);
+    const visibleRoles = getVisibleRoles(member);
 
     return (
       <button
@@ -203,9 +196,9 @@ export default function MemberSidebar() {
             {getDisplayStatus(user?._id)}
           </p>
 
-          {member.roles?.length > 0 && (
+          {visibleRoles.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
-              {member.roles.slice(0, 2).map((role) => (
+              {visibleRoles.slice(0, 2).map((role) => (
                 <span
                   key={role._id}
                   className="rounded px-1.5 py-0.5 text-[10px] font-bold"
@@ -218,9 +211,9 @@ export default function MemberSidebar() {
                 </span>
               ))}
 
-              {member.roles.length > 2 && (
+              {visibleRoles.length > 2 && (
                 <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-slate-400">
-                  +{member.roles.length - 2}
+                  +{visibleRoles.length - 2}
                 </span>
               )}
             </div>

@@ -10,6 +10,8 @@ import Invite from "@/models/Invite";
 import Notification from "@/models/Notification";
 import ServerBan from "@/models/ServerBan";
 import AuditLog from "@/models/AuditLog";
+import Role from "@/models/Role";
+import ServerTimeout from "@/models/ServerTimeout";
 
 export default async function handler(req, res) {
   if (req.method !== "DELETE") {
@@ -49,12 +51,23 @@ export default async function handler(req, res) {
       });
     }
 
+    await AuditLog.create({
+      serverId,
+      action: "server_delete",
+      actorId: session.user.id,
+      metadata: {
+        serverName: server.name,
+      },
+    });
+
     await Promise.all([
       Message.deleteMany({ serverId }),
       Channel.deleteMany({ serverId }),
       Invite.deleteMany({ serverId }),
       Notification.deleteMany({ serverId }),
       ServerBan.deleteMany({ serverId }),
+      ServerTimeout.deleteMany({ serverId }),
+      Role.deleteMany({ serverId }),
       Member.deleteMany({ serverId }),
     ]);
 

@@ -723,10 +723,26 @@ async function assignRole(member, role, action) {
     member.userId?.username?.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
+  const everyoneRole = roles.find((role) => role.isEveryone);
+  const customRoles = roles.filter((role) => !role.isEveryone);
+  const assignableRoles = roles.filter(
+    (role) => !role.isEveryone && !role.managed
+  );
+
+  function getVisibleMemberRoles(member) {
+    return (member?.roles || []).filter((role) => !role.isEveryone);
+  }
+
   function getRolePermissions(member) {
     const permissions = {};
 
-    member?.roles?.forEach((role) => {
+    if (member?.role !== "owner") {
+      Object.entries(everyoneRole?.permissions || {}).forEach(([key, value]) => {
+        if (value === true) permissions[key] = true;
+      });
+    }
+
+    getVisibleMemberRoles(member).forEach((role) => {
       Object.entries(role.permissions || {}).forEach(([key, value]) => {
         if (value === true) permissions[key] = true;
       });
@@ -1080,8 +1096,8 @@ async function assignRole(member, role, action) {
                         </p>
 
                         <div className="mt-1 flex flex-wrap items-center gap-1">
-                          {member.roles?.length > 0 ? (
-                            member.roles.map((role) => (
+                          {getVisibleMemberRoles(member).length > 0 ? (
+                            getVisibleMemberRoles(member).map((role) => (
                               <span
                                 key={role._id}
                                 className="rounded px-1.5 py-0.5 text-[10px] font-bold"
@@ -1138,14 +1154,14 @@ async function assignRole(member, role, action) {
                                 </p>
                               </div>
 
-                              {roles.length === 0 ? (
+                              {assignableRoles.length === 0 ? (
                                 <div className="rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-slate-500">
                                   No custom roles created yet.
                                 </div>
                               ) : (
                                 <div className="max-h-72 overflow-y-auto">
-                                  {roles.map((role) => {
-                                    const hasRole = member.roles?.some(
+                                  {assignableRoles.map((role) => {
+                                    const hasRole = getVisibleMemberRoles(member).some(
                                       (memberRole) => memberRole._id === role._id
                                     );
 
@@ -1339,15 +1355,25 @@ async function assignRole(member, role, action) {
                     />
 
                     <div className="min-w-0">
-                      <p
-                        className="truncate font-bold"
-                        style={{ color: role.color || "#ffffff" }}
-                      >
-                        {role.name}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          className="truncate font-bold"
+                          style={{ color: role.color || "#ffffff" }}
+                        >
+                          {role.name}
+                        </p>
+
+                        {role.isEveryone && (
+                          <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-black uppercase text-slate-400">
+                            Default
+                          </span>
+                        )}
+                      </div>
 
                       <p className="text-xs text-slate-500">
-                        Position #{role.position}
+                        {role.isEveryone
+                          ? "Applies to everyone automatically"
+                          : `Position #${role.position}`}
                       </p>
                     </div>
                   </div>
@@ -1365,10 +1391,15 @@ async function assignRole(member, role, action) {
                     <button
                       type="button"
                       onClick={() => deleteRole(role)}
-                      className="flex items-center gap-2 rounded-lg border border-red-500/20 px-3 py-2 text-xs text-red-400 transition hover:bg-red-500/10"
+                      disabled={role.isEveryone || role.managed}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition ${
+                        role.isEveryone || role.managed
+                          ? "cursor-not-allowed border-white/10 text-slate-600"
+                          : "border-red-500/20 text-red-400 hover:bg-red-500/10"
+                      }`}
                     >
                       <Trash2 size={14} />
-                      Delete
+                      {role.isEveryone || role.managed ? "Locked" : "Delete"}
                     </button>
                   </div>
                 </div>
@@ -1448,10 +1479,12 @@ async function assignRole(member, role, action) {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-black text-white">
-                Edit Role
+                {selectedRole?.isEveryone ? "Edit @everyone" : "Edit Role"}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Update the role name, color, and permissions.
+                {selectedRole?.isEveryone
+                  ? "Update the baseline permissions every member receives."
+                  : "Update the role name, color, and permissions."}
               </p>
             </div>
 
@@ -1473,6 +1506,7 @@ async function assignRole(member, role, action) {
 
             <input
               value={roleForm.name}
+              disabled={selectedRole?.isEveryone}
               onChange={(e) =>
                 setRoleForm((prev) => ({
                   ...prev,
@@ -1480,7 +1514,7 @@ async function assignRole(member, role, action) {
                 }))
               }
               maxLength={40}
-              className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:ring-2 focus:ring-violet-500"
             />
 
             <label className="mb-2 mt-5 block text-xs font-black uppercase text-slate-400">
@@ -1491,6 +1525,7 @@ async function assignRole(member, role, action) {
               <input
                 type="color"
                 value={roleForm.color}
+                disabled={selectedRole?.isEveryone}
                 onChange={(e) =>
                   setRoleForm((prev) => ({
                     ...prev,
@@ -1502,6 +1537,7 @@ async function assignRole(member, role, action) {
 
               <input
                 value={roleForm.color}
+                disabled={selectedRole?.isEveryone}
                 onChange={(e) =>
                   setRoleForm((prev) => ({
                     ...prev,

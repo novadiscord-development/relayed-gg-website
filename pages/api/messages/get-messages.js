@@ -5,7 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
-import User from "@/models/User";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -40,6 +40,10 @@ export default async function handler(req, res) {
 
     if (!membership) {
       return res.status(403).json({ message: "You are not in this server" });
+    }
+
+    if (!(await hasPermission(membership, "viewChannels"))) {
+      return res.status(403).json({ message: "You cannot view this channel" });
     }
 
     const query = {

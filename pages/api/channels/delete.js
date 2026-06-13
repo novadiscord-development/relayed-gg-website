@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "DELETE") {
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -37,10 +38,7 @@ export default async function handler(req, res) {
       userId: session.user.id,
     });
 
-    if (
-      !membership ||
-      !["owner", "admin", "moderator"].includes(membership.role)
-    ) {
+    if (!membership || !(await hasPermission(membership, "manageChannels"))) {
       return res.status(403).json({ message: "No permission" });
     }
 

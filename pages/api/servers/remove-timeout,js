@@ -5,8 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import ServerTimeout from "@/models/ServerTimeout";
 import AuditLog from "@/models/AuditLog";
-
-const MOD_ROLES = ["owner", "admin", "moderator"];
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "POST" && req.method !== "DELETE") {
@@ -35,7 +34,7 @@ export default async function handler(req, res) {
       userId: session.user.id,
     });
 
-    if (!moderatorMember || !MOD_ROLES.includes(moderatorMember.role)) {
+    if (!moderatorMember || !(await hasPermission(moderatorMember, "timeoutMembers"))) {
       return res.status(403).json({
         message: "You do not have permission to remove timeouts",
       });

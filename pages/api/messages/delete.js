@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Message from "@/models/Message";
 import Member from "@/models/Member";
 import { pusherServer } from "@/lib/pusher";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "DELETE") {
@@ -13,7 +14,7 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session) return res.status(401).json({ message: "Unauthorized" });
+    if (!session?.user?.id) return res.status(401).json({ message: "Unauthorized" });
 
     await connectDB();
 
@@ -34,10 +35,14 @@ export default async function handler(req, res) {
       userId: session.user.id,
     });
 
-    const isAuthor = message.authorId.toString() === session.user.id;
-    const canModerate = ["owner", "admin", "moderator"].includes(membership?.role);
+    if (!membership) {
+      return res.status(403).json({ message: "You are not in this server" });
+    }
 
-    if (!isAuthor && !canModerate) {
+    const isAuthor = message.authorId?.toString() === session.user.id;
+    const canManageMessages = await hasPermission(membership, "manageMessages");
+
+    if (!isAuthor && !canManageMessages) {
       return res.status(403).json({ message: "You cannot delete this message" });
     }
 

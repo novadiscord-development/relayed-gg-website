@@ -8,6 +8,7 @@ import Channel from "@/models/Channel";
 import Message from "@/models/Message";
 import User from "@/models/User";
 import { pusherServer } from "@/lib/pusher";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -16,7 +17,7 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session) return res.status(401).json({ message: "Unauthorized" });
+    if (!session?.user?.id) return res.status(401).json({ message: "Unauthorized" });
 
     await connectDB();
 
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
       userId: session.user.id,
     });
 
-    if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
+    if (!currentMember || !(await hasPermission(currentMember, "kickMembers"))) {
       return res.status(403).json({ message: "No permission" });
     }
 
@@ -48,10 +49,8 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You cannot kick the owner" });
     }
 
-    if (currentMember.role === "admin" && targetMember.role !== "member") {
-      return res.status(403).json({
-        message: "Admins can only kick regular members",
-      });
+    if (currentMember._id.toString() === targetMember._id.toString()) {
+      return res.status(400).json({ message: "You cannot kick yourself" });
     }
 
     const kickedUsername = targetMember.userId?.username || "Someone";

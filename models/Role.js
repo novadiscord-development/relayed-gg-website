@@ -31,6 +31,11 @@ const RoleSchema = new mongoose.Schema(
       default: false,
     },
 
+    isEveryone: {
+      type: Boolean,
+      default: false,
+    },
+
     permissions: {
       manageServer: {
         type: Boolean,
@@ -101,9 +106,23 @@ RoleSchema.index(
   }
 );
 
+RoleSchema.index(
+  {
+    serverId: 1,
+    name: 1,
+  },
+  {
+    unique: true,
+  }
+);
+
 RoleSchema.index({
   serverId: 1,
   position: -1,
 });
 
+RoleSchema.index({
+  serverId: 1,
+  isEveryone: 1,
+});
 export default mongoose.models.Role || mongoose.model("Role", RoleSchema);

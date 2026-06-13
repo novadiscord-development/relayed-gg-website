@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Message from "@/models/Message";
 import { pusherServer } from "@/lib/pusher";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -41,9 +42,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    const canPin = ["owner", "admin", "moderator"].includes(member.role);
-
-    if (!canPin) {
+    if (!(await hasPermission(member, "manageMessages"))) {
       return res.status(403).json({ message: "You cannot pin messages" });
     }
 

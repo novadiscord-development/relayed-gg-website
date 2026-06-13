@@ -8,6 +8,7 @@ import Message from "@/models/Message";
 import Notification from "@/models/Notification";
 import ServerTimeout from "@/models/ServerTimeout";
 import { pusherServer } from "@/lib/pusher";
+import { hasPermission } from "@/lib/permissions";
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -46,22 +47,22 @@ async function sendTimeoutSystemMessage({
 }) {
   const timeLimit = formatRemainingTime(expiresAt);
 
-let systemMessage = await Message.create({
-  serverId: channel.serverId,
-  channelId,
-  authorId: null,
-  system: true,
-  systemBot: true,
-  content: `@${username}, you are currently timed out and cannot send messages for the next ${timeLimit}.`,
-});
+  let systemMessage = await Message.create({
+    serverId: channel.serverId,
+    channelId,
+    authorId: null,
+    system: true,
+    systemBot: true,
+    content: `@${username}, you are currently timed out and cannot send messages for the next ${timeLimit}.`,
+  });
 
-systemMessage = await Message.findById(systemMessage._id).lean();
+  systemMessage = await Message.findById(systemMessage._id).lean();
 
-systemMessage.authorId = {
-  username: "Relay",
-  avatar: "/botlogo.png",
-  image: "/botlogo.png",
-};
+  systemMessage.authorId = {
+    username: "Relay",
+    avatar: "/botlogo.png",
+    image: "/botlogo.png",
+  };
 
   await pusherServer.trigger(
     `channel-${channelId}`,
@@ -80,7 +81,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -127,6 +128,21 @@ export default async function handler(req, res) {
 
     if (!membership) {
       return res.status(403).json({ message: "You are not in this server" });
+    }
+
+    if (!(await hasPermission(membership, "sendMessages"))) {
+      return res.status(403).json({
+        message: "You do not have permission to send messages",
+      });
+    }
+
+    if (
+      cleanAttachments.length > 0 &&
+      !(await hasPermission(membership, "attachFiles"))
+    ) {
+      return res.status(403).json({
+        message: "You do not have permission to attach files",
+      });
     }
 
     const timeout = await ServerTimeout.findOne({

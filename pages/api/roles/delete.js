@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Role from "@/models/Role";
 import AuditLog from "@/models/AuditLog";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "DELETE") {
@@ -25,19 +26,18 @@ export default async function handler(req, res) {
 
     const membership = await Member.findOne({ serverId, userId: session.user.id });
 
-    if (!membership || !["owner", "admin"].includes(membership.role)) {
+    if (!membership || !(await hasPermission(membership, "manageRoles"))) {
       return res.status(403).json({ message: "You do not have permission to manage roles" });
     }
 
     const role = await Role.findOne({ _id: roleId, serverId });
     if (!role) return res.status(404).json({ message: "Role not found" });
-    if (role.managed) return res.status(400).json({ message: "Managed roles cannot be deleted" });
 
-    await Member.updateMany(
-      { serverId },
-      { $pull: { roles: role._id } }
-    );
+    if (role.isEveryone || role.managed) {
+      return res.status(400).json({ message: "This role cannot be deleted" });
+    }
 
+    await Member.updateMany({ serverId }, { $pull: { roles: role._id } });
     await Role.deleteOne({ _id: role._id });
 
     await AuditLog.create({

@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Role from "@/models/Role";
 import AuditLog from "@/models/AuditLog";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -25,15 +26,23 @@ export default async function handler(req, res) {
 
     const actorMember = await Member.findOne({ serverId, userId: session.user.id });
 
-    if (!actorMember || !["owner", "admin"].includes(actorMember.role)) {
+    if (!actorMember || !(await hasPermission(actorMember, "manageRoles"))) {
       return res.status(403).json({ message: "You do not have permission to assign roles" });
     }
 
     const role = await Role.findOne({ _id: roleId, serverId });
     if (!role) return res.status(404).json({ message: "Role not found" });
 
+    if (role.isEveryone || role.managed) {
+      return res.status(400).json({ message: "@everyone is assigned automatically" });
+    }
+
     const targetMember = await Member.findOne({ _id: memberId, serverId });
     if (!targetMember) return res.status(404).json({ message: "Member not found" });
+
+    if (targetMember.role === "owner" && actorMember.role !== "owner") {
+      return res.status(403).json({ message: "You cannot edit the server owner's roles" });
+    }
 
     const update =
       action === "add"
@@ -46,7 +55,10 @@ export default async function handler(req, res) {
       { new: true }
     )
       .populate("userId", "username avatar image isStaff isAdmin badges")
-      .populate("roles");
+      .populate({
+        path: "roles",
+        match: { isEveryone: { $ne: true } },
+      });
 
     await AuditLog.create({
       serverId,

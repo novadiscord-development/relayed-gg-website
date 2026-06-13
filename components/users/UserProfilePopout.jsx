@@ -65,19 +65,32 @@ export default function UserProfilePopout({
       ? "Do Not Disturb"
       : "Offline";
 
-  const currentPermissions = currentMember?.permissions || {};
+  function getRolePermissions(targetMember) {
+    const permissions = {};
+
+    (targetMember?.roles || [])
+      .filter((role) => !role.isEveryone)
+      .forEach((role) => {
+        Object.entries(role.permissions || {}).forEach(([key, value]) => {
+          if (value === true) permissions[key] = true;
+        });
+      });
+
+    return permissions;
+  }
+
+  const currentPermissions = getRolePermissions(currentMember);
 
   const canModerate =
     currentMember &&
     friendStatus !== "self" &&
     currentMember._id !== member?._id &&
+    member?.role !== "owner" &&
     (
+      currentMember.role === "owner" ||
       currentPermissions.kickMembers ||
       currentPermissions.banMembers ||
-      currentPermissions.timeoutMembers ||
-      currentMember.role === "owner" ||
-      currentMember.role === "admin" ||
-      currentMember.role === "moderator"
+      currentPermissions.timeoutMembers
     );
 
   async function loadFriendStatus() {
@@ -435,7 +448,7 @@ export default function UserProfilePopout({
 
   const mutualFriendsCount = user.mutualFriends?.length || user.mutualFriendCount || 0;
   const mutualServersCount = user.mutualServers?.length || user.mutualServerCount || 0;
-  const roles = member?.roles || [];
+  const roles = (member?.roles || []).filter((role) => !role.isEveryone);
 
   return (
     <div

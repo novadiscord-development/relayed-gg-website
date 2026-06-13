@@ -4,6 +4,16 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
+import { hasPermission } from "@/lib/permissions";
+
+function cleanChannelName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-_]/g, "")
+    .slice(0, 40);
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -15,7 +25,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({
         message: "Unauthorized",
       });
@@ -37,6 +47,14 @@ export default async function handler(req, res) {
       });
     }
 
+    const cleanName = cleanChannelName(name);
+
+    if (!cleanName) {
+      return res.status(400).json({
+        message: "Channel name is invalid",
+      });
+    }
+
     const membership = await Member.findOne({
       serverId,
       userId: session.user.id,
@@ -48,19 +66,33 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!["owner", "admin", "moderator"].includes(membership.role)) {
+    if (!(await hasPermission(membership, "manageChannels"))) {
       return res.status(403).json({
         message: "You do not have permission to create channels",
       });
+    }
+
+    if (parentId) {
+      const parentCategory = await Channel.findOne({
+        _id: parentId,
+        serverId,
+        type: "category",
+      });
+
+      if (!parentCategory) {
+        return res.status(400).json({
+          message: "Parent category not found",
+        });
+      }
     }
 
     const channelCount = await Channel.countDocuments({ serverId });
 
     const channel = await Channel.create({
       serverId,
-      name: name.trim().toLowerCase().replace(/\s+/g, "-"),
+      name: cleanName,
       type,
-      parentId,
+      parentId: type === "category" ? null : parentId,
       position: channelCount,
     });
 

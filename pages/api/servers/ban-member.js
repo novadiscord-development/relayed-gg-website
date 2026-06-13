@@ -9,6 +9,7 @@ import User from "@/models/User";
 import ServerBan from "@/models/ServerBan";
 import { pusherServer } from "@/lib/pusher";
 import AuditLog from "@/models/AuditLog";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,7 +18,7 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session) return res.status(401).json({ message: "Unauthorized" });
+    if (!session?.user?.id) return res.status(401).json({ message: "Unauthorized" });
 
     await connectDB();
 
@@ -32,7 +33,7 @@ export default async function handler(req, res) {
       userId: session.user.id,
     });
 
-    if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
+    if (!currentMember || !(await hasPermission(currentMember, "banMembers"))) {
       return res.status(403).json({ message: "No permission" });
     }
 
@@ -49,12 +50,11 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You cannot ban the owner" });
     }
 
-    if (currentMember.role === "admin" && targetMember.role !== "member") {
-      return res.status(403).json({
-        message: "Admins can only ban regular members",
-      });
+    if (currentMember._id.toString() === targetMember._id.toString()) {
+      return res.status(400).json({ message: "You cannot ban yourself" });
     }
 
+    const cleanReason = String(reason || "").trim().slice(0, 500);
     const bannedUserId = targetMember.userId._id;
     const bannedUsername = targetMember.userId?.username || "Someone";
 
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
         serverId,
         userId: bannedUserId,
         bannedBy: session.user.id,
-        reason: reason.trim(),
+        reason: cleanReason,
       },
       {
         upsert: true,
@@ -114,6 +114,7 @@ export default async function handler(req, res) {
       action: "member_ban",
       actorId: session.user.id,
       targetUserId: targetMember.userId,
+      reason: cleanReason,
     });
 
     return res.status(200).json({

@@ -16,7 +16,7 @@ const MemberSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["owner", "admin", "moderator", "member"],
+      enum: ["owner", "member"],
       default: "member",
     },
 
@@ -47,4 +47,15 @@ MemberSchema.index(
   }
 );
 
-export default mongoose.models.Member || mongoose.model("Member", MemberSchema);
+MemberSchema.index({
+  serverId: 1,
+  role: 1,
+});
+
+MemberSchema.index({
+  serverId: 1,
+  roles: 1,
+});
+
+export default mongoose.models.Member ||
+  mongoose.model("Member", MemberSchema);

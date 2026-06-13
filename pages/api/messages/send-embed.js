@@ -8,6 +8,7 @@ import Message from "@/models/Message";
 import Notification from "@/models/Notification";
 import ServerTimeout from "@/models/ServerTimeout";
 import { pusherServer } from "@/lib/pusher";
+import { hasPermission } from "@/lib/permissions";
 
 function sanitizeColor(color) {
   if (!color) return "#7c3aed";
@@ -42,17 +43,30 @@ function formatRemainingTime(expiresAt) {
   return `${days} day${days === 1 ? "" : "s"}`;
 }
 
-async function sendTimeoutSystemMessage({ channel, channelId, username, expiresAt }) {
+async function sendTimeoutSystemMessage({
+  channel,
+  channelId,
+  username,
+  expiresAt,
+}) {
   const timeLimit = formatRemainingTime(expiresAt);
 
   let systemMessage = await Message.create({
     serverId: channel.serverId,
     channelId,
+    authorId: null,
     system: true,
+    systemBot: true,
     content: `@${username}, you are currently timed out and cannot send messages for the next ${timeLimit}.`,
   });
 
-  systemMessage = await Message.findById(systemMessage._id);
+  systemMessage = await Message.findById(systemMessage._id).lean();
+
+  systemMessage.authorId = {
+    username: "Relay",
+    avatar: "/botlogo.png",
+    image: "/botlogo.png",
+  };
 
   await pusherServer.trigger(
     `channel-${channelId}`,
@@ -71,7 +85,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -114,6 +128,12 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You are not in this server" });
     }
 
+    if (!(await hasPermission(membership, "manageMessages"))) {
+      return res.status(403).json({
+        message: "You do not have permission to send embeds",
+      });
+    }
+
     const timeout = await ServerTimeout.findOne({
       serverId: channel.serverId,
       userId: session.user.id,
@@ -141,12 +161,6 @@ export default async function handler(req, res) {
           expiresAt: timeout.expiresAt,
         });
       }
-    }
-
-    if (!["owner", "admin", "moderator"].includes(membership.role)) {
-      return res.status(403).json({
-        message: "Only moderators, admins, and owners can send embeds",
-      });
     }
 
     let message = await Message.create({

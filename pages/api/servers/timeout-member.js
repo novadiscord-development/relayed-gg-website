@@ -5,8 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import ServerTimeout from "@/models/ServerTimeout";
 import AuditLog from "@/models/AuditLog";
-
-const MOD_ROLES = ["owner", "admin", "moderator"];
+import { hasPermission } from "@/lib/permissions";
 
 const DURATIONS = {
   "5m": 5 * 60 * 1000,
@@ -51,7 +50,7 @@ export default async function handler(req, res) {
       userId: session.user.id,
     });
 
-    if (!moderatorMember || !MOD_ROLES.includes(moderatorMember.role)) {
+    if (!moderatorMember || !(await hasPermission(moderatorMember, "timeoutMembers"))) {
       return res.status(403).json({
         message: "You do not have permission to timeout members",
       });
@@ -74,21 +73,6 @@ export default async function handler(req, res) {
     if (targetMember.role === "owner") {
       return res.status(403).json({
         message: "You cannot timeout the server owner",
-      });
-    }
-
-    if (
-      moderatorMember.role === "moderator" &&
-      ["admin", "moderator"].includes(targetMember.role)
-    ) {
-      return res.status(403).json({
-        message: "Moderators cannot timeout admins or other moderators",
-      });
-    }
-
-    if (moderatorMember.role === "admin" && targetMember.role === "admin") {
-      return res.status(403).json({
-        message: "Admins cannot timeout other admins",
       });
     }
 

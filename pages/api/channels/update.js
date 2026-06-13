@@ -4,6 +4,16 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
+import { hasPermission } from "@/lib/permissions";
+
+function cleanChannelName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-_]/g, "")
+    .slice(0, 40);
+}
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -13,7 +23,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -36,11 +46,17 @@ export default async function handler(req, res) {
       userId: session.user.id,
     });
 
-    if (!membership || !["owner", "admin", "moderator"].includes(membership.role)) {
+    if (!membership || !(await hasPermission(membership, "manageChannels"))) {
       return res.status(403).json({ message: "No permission" });
     }
 
-    channel.name = name.trim().toLowerCase().replace(/\s+/g, "-");
+    const cleanName = cleanChannelName(name);
+
+    if (!cleanName) {
+      return res.status(400).json({ message: "Channel name is invalid" });
+    }
+
+    channel.name = cleanName;
     await channel.save();
 
     return res.status(200).json({ channel });
