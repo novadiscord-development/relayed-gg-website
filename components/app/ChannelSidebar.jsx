@@ -35,6 +35,22 @@ import {
 import UserPanel from "./UserPanel";
 import CreateChannelModal from "@/components/modals/CreateChannelModal";
 import ChannelSettingsModal from "@/components/modals/ChannelSettingsModal";
+import { pusherClient } from "@/lib/pusher";
+
+useEffect(() => {
+  if (!serverId) return;
+
+  const channel = pusherClient.subscribe(`server-${serverId}`);
+
+  channel.bind("channel-permissions:updated", () => {
+    loadSidebarData();
+  });
+
+  return () => {
+    channel.unbind("channel-permissions:updated");
+    pusherClient.unsubscribe(`server-${serverId}`);
+  };
+}, [serverId]);
 
 function normalizeId(value) {
   if (!value) return null;
