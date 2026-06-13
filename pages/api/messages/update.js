@@ -3,9 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
 import Message from "@/models/Message";
-import Member from "@/models/Member";
 import { pusherServer } from "@/lib/pusher";
-import { hasPermission } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -14,7 +12,7 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session?.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    if (!session) return res.status(401).json({ message: "Unauthorized" });
 
     await connectDB();
 
@@ -30,37 +28,18 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: "Message not found" });
     }
 
-    const member = await Member.findOne({
-      serverId: message.serverId,
-      userId: session.user.id,
-    });
-
-    if (!member) {
-      return res.status(403).json({ message: "You are not in this server" });
-    }
-
-    if (message.authorId?.toString() !== session.user.id) {
+    if (message.authorId.toString() !== session.user.id) {
       return res.status(403).json({ message: "You cannot edit this message" });
     }
 
-    if (!(await hasPermission(member, "sendMessages"))) {
-      return res.status(403).json({ message: "You cannot edit messages here" });
-    }
-
-    message.content = content.trim().slice(0, 2000);
+    message.content = content.trim();
     message.edited = true;
     await message.save();
 
-    const populatedMessage = await Message.findById(message._id)
-      .populate("authorId", "username avatar image isStaff isAdmin badges")
-      .populate({
-        path: "replyToId",
-        select: "content authorId createdAt deleted",
-        populate: {
-          path: "authorId",
-          select: "username avatar image isStaff isAdmin badges",
-        },
-      });
+    const populatedMessage = await message.populate(
+      "authorId",
+      "username avatar isStaff isAdmin badges"
+    );
 
     await pusherServer.trigger(
       `channel-${message.channelId}`,

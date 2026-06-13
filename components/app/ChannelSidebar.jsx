@@ -27,11 +27,14 @@ import {
   UserPlus,
   Settings,
   LogOut,
+  SlidersHorizontal,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 
 import UserPanel from "./UserPanel";
 import CreateChannelModal from "@/components/modals/CreateChannelModal";
-import ContextMenu from "@/components/ui/ContextMenu";
+import ChannelSettingsModal from "@/components/modals/ChannelSettingsModal";
 
 function normalizeId(value) {
   if (!value) return null;
@@ -180,14 +183,16 @@ function SortableCategoryBlock({ category, children, onOpenMenu, onAdd }) {
           <span className="truncate">{category.name}</span>
         </button>
 
-        <button
-          type="button"
-          onClick={onAdd}
-          title="Create channel"
-          className="rounded p-1 text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
-        >
-          <Plus size={13} />
-        </button>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            title="Create channel"
+            className="rounded p-1 text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            <Plus size={13} />
+          </button>
+        )}
       </div>
 
       <DropZone id={`category:${category._id}`} className="min-h-[24px] rounded-lg">
@@ -230,6 +235,8 @@ export default function ChannelSidebar() {
 
   const [editingChannel, setEditingChannel] = useState(null);
   const [editName, setEditName] = useState("");
+
+  const [settingsChannel, setSettingsChannel] = useState(null);
 
   useEffect(() => {
     if (!serverId) return;
@@ -284,6 +291,7 @@ export default function ChannelSidebar() {
 
   const isOwner = membership?.role === "owner";
   const canManageServer = memberHasPermission(membership, "manageServer");
+  const canManageChannels = memberHasPermission(membership, "manageChannels");
 
   const topLevelItems = useMemo(
     () =>
@@ -304,6 +312,8 @@ export default function ChannelSidebar() {
   }
 
   function openCreateModal(type = "text", parentId = null) {
+    if (!canManageChannels) return;
+
     setCreateType(type);
     setCreateParentId(parentId);
     setShowCreateModal(true);
@@ -365,10 +375,18 @@ export default function ChannelSidebar() {
 
   function handleEditChannel() {
     const channel = contextMenu?.channel;
-    if (!channel) return;
+    if (!channel || !canManageChannels) return;
 
     setEditingChannel(channel);
     setEditName(channel.name);
+    setContextMenu(null);
+  }
+
+  function handleOpenChannelSettings() {
+    const channel = contextMenu?.channel;
+    if (!channel || !canManageChannels) return;
+
+    setSettingsChannel(channel);
     setContextMenu(null);
   }
 
@@ -643,7 +661,7 @@ export default function ChannelSidebar() {
         key={category._id}
         category={category}
         onOpenMenu={openContextMenu}
-        onAdd={() => openCreateModal("text", category._id)}
+        onAdd={canManageChannels ? () => openCreateModal("text", category._id) : null}
       >
         <SortableContext
           items={categoryChannels.map((channel) => channel._id)}
@@ -800,20 +818,54 @@ export default function ChannelSidebar() {
         onChannelCreated={handleChannelCreated}
       />
 
-      <ContextMenu
-        menu={contextMenu}
-        onClose={() => setContextMenu(null)}
-        onEdit={handleEditChannel}
-        onDelete={handleDeleteChannel}
-        editLabel={`Edit ${
-          contextMenu?.channel?.type === "category" ? "Category" : "Channel"
-        }`}
-        deleteLabel={`Delete ${
-          contextMenu?.channel?.type === "category" ? "Category" : "Channel"
-        }`}
-      />
+      {contextMenu && (
+        <>
+          <button
+            className="fixed inset-0 z-[9998] cursor-default"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setContextMenu(null);
+            }}
+          />
 
-      {blankMenu && (
+          <div
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            className="fixed z-[9999] w-60 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+          >
+            <button
+              onClick={handleEditChannel}
+              disabled={!canManageChannels}
+              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Edit {contextMenu.channel?.type === "category" ? "Category" : "Channel"}
+              <Pencil size={15} />
+            </button>
+
+            <button
+              onClick={handleOpenChannelSettings}
+              disabled={!canManageChannels}
+              className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/10 hover:text-violet-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Channel Permissions
+              <SlidersHorizontal size={15} />
+            </button>
+
+            <div className="my-1 h-px bg-white/10" />
+
+            <button
+              onClick={handleDeleteChannel}
+              disabled={!canManageChannels}
+              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Delete {contextMenu.channel?.type === "category" ? "Category" : "Channel"}
+              <Trash2 size={15} />
+            </button>
+          </div>
+        </>
+      )}
+
+      {blankMenu && canManageChannels && (
         <>
           <button
             className="fixed inset-0 z-[9998] cursor-default"
@@ -913,6 +965,22 @@ export default function ChannelSidebar() {
           onUpdated={(updatedServer) => {
             setServer(updatedServer);
             window.dispatchEvent(new Event("server:updated"));
+          }}
+        />
+      )}
+
+      {settingsChannel && (
+        <ChannelSettingsModal
+          channel={settingsChannel}
+          serverId={serverId}
+          onClose={() => setSettingsChannel(null)}
+          onUpdated={(updatedChannel) => {
+            setChannels((prev) =>
+              prev.map((item) =>
+                item._id === updatedChannel._id ? updatedChannel : item
+              )
+            );
+            window.dispatchEvent(new Event("channel:updated"));
           }}
         />
       )}

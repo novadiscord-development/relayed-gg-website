@@ -5,7 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import Message from "@/models/Message";
-import { hasPermission } from "@/lib/permissions";
+import { hasChannelPermission } from "@/lib/channelPermissions";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You are not in this server" });
     }
 
-    if (!(await hasPermission(membership, "viewChannels"))) {
+    if (!(await hasChannelPermission(membership, channel, "viewChannels"))) {
       return res.status(403).json({ message: "You cannot view this channel" });
     }
 

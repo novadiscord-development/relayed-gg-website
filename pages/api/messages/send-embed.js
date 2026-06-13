@@ -8,7 +8,7 @@ import Message from "@/models/Message";
 import Notification from "@/models/Notification";
 import ServerTimeout from "@/models/ServerTimeout";
 import { pusherServer } from "@/lib/pusher";
-import { hasPermission } from "@/lib/permissions";
+import { hasChannelPermission } from "@/lib/channelPermissions";
 
 function sanitizeColor(color) {
   if (!color) return "#7c3aed";
@@ -128,9 +128,15 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You are not in this server" });
     }
 
-    if (!(await hasPermission(membership, "manageMessages"))) {
+    if (!(await hasChannelPermission(membership, channel, "viewChannels"))) {
       return res.status(403).json({
-        message: "You do not have permission to send embeds",
+        message: "You cannot view this channel",
+      });
+    }
+
+    if (!(await hasChannelPermission(membership, channel, "manageMessages"))) {
+      return res.status(403).json({
+        message: "You do not have permission to send embeds in this channel",
       });
     }
 

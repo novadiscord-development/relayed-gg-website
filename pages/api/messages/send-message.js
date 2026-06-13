@@ -8,7 +8,7 @@ import Message from "@/models/Message";
 import Notification from "@/models/Notification";
 import ServerTimeout from "@/models/ServerTimeout";
 import { pusherServer } from "@/lib/pusher";
-import { hasPermission } from "@/lib/permissions";
+import { hasChannelPermission } from "@/lib/channelPermissions";
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -130,18 +130,24 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You are not in this server" });
     }
 
-    if (!(await hasPermission(membership, "sendMessages"))) {
+    if (!(await hasChannelPermission(membership, channel, "viewChannels"))) {
       return res.status(403).json({
-        message: "You do not have permission to send messages",
+        message: "You cannot view this channel",
+      });
+    }
+
+    if (!(await hasChannelPermission(membership, channel, "sendMessages"))) {
+      return res.status(403).json({
+        message: "You do not have permission to send messages in this channel",
       });
     }
 
     if (
       cleanAttachments.length > 0 &&
-      !(await hasPermission(membership, "attachFiles"))
+      !(await hasChannelPermission(membership, channel, "attachFiles"))
     ) {
       return res.status(403).json({
-        message: "You do not have permission to attach files",
+        message: "You do not have permission to attach files in this channel",
       });
     }
 

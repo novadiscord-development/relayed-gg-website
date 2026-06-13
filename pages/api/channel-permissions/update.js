@@ -6,15 +6,6 @@ import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import { hasPermission } from "@/lib/permissions";
 
-function cleanChannelName(name) {
-  return String(name || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-_]/g, "")
-    .slice(0, 40);
-}
-
 function cleanPermissionObject(value = {}) {
   return {
     viewChannels: Boolean(value.viewChannels),
@@ -44,24 +35,15 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-
-    if (!session?.user?.id) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+    if (!session?.user?.id) return res.status(401).json({ message: "Unauthorized" });
 
     await connectDB();
 
-    const { channelId, name, permissionOverwrites } = req.body;
-
-    if (!channelId) {
-      return res.status(400).json({ message: "Channel ID required" });
-    }
+    const { channelId, overwrites = [] } = req.body;
+    if (!channelId) return res.status(400).json({ message: "Channel ID is required" });
 
     const channel = await Channel.findById(channelId);
-
-    if (!channel) {
-      return res.status(404).json({ message: "Channel not found" });
-    }
+    if (!channel) return res.status(404).json({ message: "Channel not found" });
 
     const membership = await Member.findOne({
       serverId: channel.serverId,
@@ -72,25 +54,15 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "No permission" });
     }
 
-    if (typeof name === "string") {
-      const cleanName = cleanChannelName(name);
-
-      if (!cleanName) {
-        return res.status(400).json({ message: "Channel name is invalid" });
-      }
-
-      channel.name = cleanName;
-    }
-
-    if (permissionOverwrites !== undefined) {
-      channel.permissionOverwrites = cleanOverwrites(permissionOverwrites);
-    }
-
+    channel.permissionOverwrites = cleanOverwrites(overwrites);
     await channel.save();
 
-    return res.status(200).json({ channel });
+    return res.status(200).json({
+      channel,
+      overwrites: channel.permissionOverwrites || [],
+    });
   } catch (error) {
-    console.error("UPDATE_CHANNEL_ERROR", error);
+    console.error("UPDATE_CHANNEL_PERMISSIONS_ERROR", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 }
