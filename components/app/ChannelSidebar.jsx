@@ -35,11 +35,12 @@ import {
 import UserPanel from "./UserPanel";
 import CreateChannelModal from "@/components/modals/CreateChannelModal";
 import ChannelSettingsModal from "@/components/modals/ChannelSettingsModal";
-import { pusherClient } from "@/lib/pusher";
+import { getPusherClient } from "@/lib/pusher-client";
 
 useEffect(() => {
   if (!serverId) return;
 
+  const pusherClient = getPusherClient();
   const channel = pusherClient.subscribe(`server-${serverId}`);
 
   channel.bind("channel-permissions:updated", () => {
