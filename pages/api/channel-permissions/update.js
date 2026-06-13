@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import { hasPermission } from "@/lib/permissions";
+import { pusherServer } from "@/lib/pusher";
 
 function cleanPermissionObject(value = {}) {
   return {
@@ -56,6 +57,15 @@ export default async function handler(req, res) {
 
     channel.permissionOverwrites = cleanOverwrites(overwrites);
     await channel.save();
+
+    await pusherServer.trigger(
+      `server-${channel.serverId}`,
+      "channel-permissions:updated",
+      {
+        channelId: channel._id,
+        serverId: channel.serverId,
+      }
+    );
 
     return res.status(200).json({
       channel,
