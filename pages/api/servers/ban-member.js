@@ -9,7 +9,7 @@ import User from "@/models/User";
 import ServerBan from "@/models/ServerBan";
 import { pusherServer } from "@/lib/pusher";
 import AuditLog from "@/models/AuditLog";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, canManageTarget } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -18,7 +18,10 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session?.user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+    if (!session?.user?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     await connectDB();
 
@@ -46,12 +49,18 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: "Member not found" });
     }
 
+    if (currentMember._id.toString() === targetMember._id.toString()) {
+      return res.status(400).json({ message: "You cannot ban yourself" });
+    }
+
     if (targetMember.role === "owner") {
       return res.status(403).json({ message: "You cannot ban the owner" });
     }
 
-    if (currentMember._id.toString() === targetMember._id.toString()) {
-      return res.status(400).json({ message: "You cannot ban yourself" });
+    if (!(await canManageTarget(currentMember, targetMember))) {
+      return res.status(403).json({
+        message: "You cannot ban a member with an equal or higher role",
+      });
     }
 
     const cleanReason = String(reason || "").trim().slice(0, 500);
@@ -79,6 +88,12 @@ export default async function handler(req, res) {
     );
 
     await Member.findByIdAndDelete(targetMember._id);
+
+    await pusherServer.trigger(`server-${serverId}`, "member:banned", {
+      memberId: targetMember._id,
+      userId: bannedUserId,
+      serverId,
+    });
 
     const firstTextChannel = await Channel.findOne({
       serverId,

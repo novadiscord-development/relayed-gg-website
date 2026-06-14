@@ -5,7 +5,8 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import ServerTimeout from "@/models/ServerTimeout";
 import AuditLog from "@/models/AuditLog";
-import { hasPermission } from "@/lib/permissions";
+import { pusherServer } from "@/lib/pusher";
+import { hasPermission, canManageTarget } from "@/lib/permissions";
 
 const DURATIONS = {
   "5m": 5 * 60 * 1000,
@@ -76,6 +77,12 @@ export default async function handler(req, res) {
       });
     }
 
+    if (!(await canManageTarget(moderatorMember, targetMember))) {
+      return res.status(403).json({
+        message: "You cannot timeout a member with an equal or higher role",
+      });
+    }
+
     const cleanReason = String(reason || "").trim().slice(0, 500);
     const expiresAt = new Date(Date.now() + DURATIONS[duration]);
 
@@ -99,6 +106,13 @@ export default async function handler(req, res) {
         setDefaultsOnInsert: true,
       }
     );
+
+    await pusherServer.trigger(`server-${serverId}`, "member:timeout", {
+      memberId: targetMember._id,
+      userId: targetMember.userId,
+      serverId,
+      expiresAt,
+    });
 
     await AuditLog.create({
       serverId,

@@ -5,7 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Role from "@/models/Role";
 import AuditLog from "@/models/AuditLog";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, canAssignRole, canManageTarget } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -14,7 +14,10 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session?.user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+    if (!session?.user?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     await connectDB();
 
@@ -24,24 +27,57 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Invalid request" });
     }
 
-    const actorMember = await Member.findOne({ serverId, userId: session.user.id });
+    const actorMember = await Member.findOne({
+      serverId,
+      userId: session.user.id,
+    });
 
     if (!actorMember || !(await hasPermission(actorMember, "manageRoles"))) {
-      return res.status(403).json({ message: "You do not have permission to assign roles" });
+      return res.status(403).json({
+        message: "You do not have permission to assign roles",
+      });
     }
 
-    const role = await Role.findOne({ _id: roleId, serverId });
-    if (!role) return res.status(404).json({ message: "Role not found" });
+    const role = await Role.findOne({
+      _id: roleId,
+      serverId,
+    });
+
+    if (!role) {
+      return res.status(404).json({ message: "Role not found" });
+    }
 
     if (role.isEveryone || role.managed) {
-      return res.status(400).json({ message: "@everyone is assigned automatically" });
+      return res.status(400).json({
+        message: "@everyone is assigned automatically",
+      });
     }
 
-    const targetMember = await Member.findOne({ _id: memberId, serverId });
-    if (!targetMember) return res.status(404).json({ message: "Member not found" });
+    if (!(await canAssignRole(actorMember, role))) {
+      return res.status(403).json({
+        message: "You cannot assign or remove a role equal to or higher than your highest role",
+      });
+    }
 
-    if (targetMember.role === "owner" && actorMember.role !== "owner") {
-      return res.status(403).json({ message: "You cannot edit the server owner's roles" });
+    const targetMember = await Member.findOne({
+      _id: memberId,
+      serverId,
+    });
+
+    if (!targetMember) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+
+    if (targetMember.role === "owner") {
+      return res.status(403).json({
+        message: "You cannot edit the server owner's roles",
+      });
+    }
+
+    if (!(await canManageTarget(actorMember, targetMember))) {
+      return res.status(403).json({
+        message: "You cannot manage a member equal to or higher than you",
+      });
     }
 
     const update =
@@ -58,6 +94,7 @@ export default async function handler(req, res) {
       .populate({
         path: "roles",
         match: { isEveryone: { $ne: true } },
+        options: { sort: { position: -1 } },
       });
 
     await AuditLog.create({

@@ -5,6 +5,7 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import Role from "@/models/Role";
 import AuditLog from "@/models/AuditLog";
+import { hasPermission, canManageRole } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -13,7 +14,10 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session?.user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+    if (!session?.user?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     await connectDB();
 
@@ -23,19 +27,87 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Invalid request" });
     }
 
-    const membership = await Member.findOne({ serverId, userId: session.user.id });
+    const cleanRoleIds = roleIds
+      .filter(Boolean)
+      .map((roleId) => roleId.toString());
 
-    if (!membership || !["owner", "admin"].includes(membership.role)) {
-      return res.status(403).json({ message: "You do not have permission to manage roles" });
+    const uniqueRoleIds = [...new Set(cleanRoleIds)];
+
+    if (uniqueRoleIds.length !== cleanRoleIds.length) {
+      return res.status(400).json({ message: "Duplicate roles are not allowed" });
+    }
+
+    const membership = await Member.findOne({
+      serverId,
+      userId: session.user.id,
+    });
+
+    if (!membership || !(await hasPermission(membership, "manageRoles"))) {
+      return res.status(403).json({
+        message: "You do not have permission to manage roles",
+      });
+    }
+
+    const roles = await Role.find({
+      serverId,
+      isEveryone: { $ne: true },
+      managed: { $ne: true },
+    });
+
+    const existingRoleIds = roles.map((role) => role._id.toString());
+
+    const missingRole = uniqueRoleIds.some(
+      (roleId) => !existingRoleIds.includes(roleId)
+    );
+
+    if (missingRole || uniqueRoleIds.length !== existingRoleIds.length) {
+      return res.status(400).json({
+        message: "Role order must include every editable custom role",
+      });
+    }
+
+    const rolesById = new Map(
+      roles.map((role) => [role._id.toString(), role])
+    );
+
+    for (const roleId of uniqueRoleIds) {
+      const role = rolesById.get(roleId);
+
+      if (!(await canManageRole(membership, role))) {
+        return res.status(403).json({
+          message: "You cannot reorder a role equal to or higher than your highest role",
+        });
+      }
     }
 
     await Promise.all(
-      roleIds.map((roleId, index) =>
+      uniqueRoleIds.map((roleId, index) =>
         Role.updateOne(
-          { _id: roleId, serverId },
-          { $set: { position: roleIds.length - index } }
+          {
+            _id: roleId,
+            serverId,
+            isEveryone: { $ne: true },
+            managed: { $ne: true },
+          },
+          {
+            $set: {
+              position: uniqueRoleIds.length - index,
+            },
+          }
         )
       )
+    );
+
+    await Role.updateOne(
+      {
+        serverId,
+        isEveryone: true,
+      },
+      {
+        $set: {
+          position: 0,
+        },
+      }
     );
 
     await AuditLog.create({
@@ -44,13 +116,18 @@ export default async function handler(req, res) {
       actorId: session.user.id,
       metadata: {
         reordered: true,
-        roleIds,
+        roleIds: uniqueRoleIds,
       },
     });
 
-    const roles = await Role.find({ serverId }).sort({ position: -1 }).lean();
+    const updatedRoles = await Role.find({ serverId })
+      .sort({
+        isEveryone: 1,
+        position: -1,
+      })
+      .lean();
 
-    return res.status(200).json({ roles });
+    return res.status(200).json({ roles: updatedRoles });
   } catch (error) {
     console.error("REORDER_ROLES_ERROR", error);
     return res.status(500).json({ message: "Internal Server Error" });

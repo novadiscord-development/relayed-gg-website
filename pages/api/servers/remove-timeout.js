@@ -5,7 +5,8 @@ import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
 import ServerTimeout from "@/models/ServerTimeout";
 import AuditLog from "@/models/AuditLog";
-import { hasPermission } from "@/lib/permissions";
+import { pusherServer } from "@/lib/pusher";
+import { hasPermission, canManageTarget } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "POST" && req.method !== "DELETE") {
@@ -48,12 +49,36 @@ export default async function handler(req, res) {
       });
     }
 
+    if (targetMember.userId.toString() === session.user.id.toString()) {
+      return res.status(400).json({
+        message: "You cannot remove your own timeout",
+      });
+    }
+
+    if (targetMember.role === "owner") {
+      return res.status(403).json({
+        message: "You cannot remove timeout from the server owner",
+      });
+    }
+
+    if (!(await canManageTarget(moderatorMember, targetMember))) {
+      return res.status(403).json({
+        message: "You cannot remove timeout from a member with an equal or higher role",
+      });
+    }
+
     await ServerTimeout.findOneAndDelete({
       serverId,
       userId: targetMember.userId,
     });
 
     const cleanReason = String(reason || "").trim().slice(0, 500);
+
+    await pusherServer.trigger(`server-${serverId}`, "member:timeout_removed", {
+      memberId: targetMember._id,
+      userId: targetMember.userId,
+      serverId,
+    });
 
     await AuditLog.create({
       serverId,

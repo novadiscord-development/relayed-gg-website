@@ -23,6 +23,8 @@ import {
   Pencil,
   Copy,
   RefreshCw,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 const tabs = [
@@ -477,6 +479,46 @@ async function deleteRole(role) {
   await loadMembers();
 }
 
+async function moveRole(role, direction) {
+  if (!role || role.isEveryone || role.managed) return;
+
+  const orderedRoles = roles
+    .filter((item) => !item.isEveryone && !item.managed)
+    .sort((a, b) => (b.position || 0) - (a.position || 0));
+
+  const currentIndex = orderedRoles.findIndex((item) => item._id === role._id);
+  const nextIndex = currentIndex + direction;
+
+  if (currentIndex === -1 || nextIndex < 0 || nextIndex >= orderedRoles.length) {
+    return;
+  }
+
+  const nextRoles = [...orderedRoles];
+  const [movedRole] = nextRoles.splice(currentIndex, 1);
+  nextRoles.splice(nextIndex, 0, movedRole);
+
+  const res = await fetch("/api/roles/reorder", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverId: server._id,
+      roleIds: nextRoles.map((item) => item._id),
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    await showAlert(data.message || "Failed to reorder roles", "Role Error");
+    return;
+  }
+
+  setRoles(data.roles || []);
+  await loadMembers();
+}
+
 async function assignRole(member, role, action) {
   const res = await fetch("/api/roles/assign", {
     method: "PATCH",
@@ -725,6 +767,14 @@ async function assignRole(member, role, action) {
 
   const everyoneRole = roles.find((role) => role.isEveryone);
   const customRoles = roles.filter((role) => !role.isEveryone);
+  const sortedRoles = [...roles].sort((a, b) => {
+    if (a.isEveryone && !b.isEveryone) return 1;
+    if (!a.isEveryone && b.isEveryone) return -1;
+    return (b.position || 0) - (a.position || 0);
+  });
+  const reorderableRoles = sortedRoles.filter(
+    (role) => !role.isEveryone && !role.managed
+  );
   const assignableRoles = roles.filter(
     (role) => !role.isEveryone && !role.managed
   );
@@ -1342,7 +1392,7 @@ async function assignRole(member, role, action) {
 
           <div className="mt-6 space-y-3">
 
-            {roles.map((role) => (
+            {sortedRoles.map((role) => (
               <div
                 key={role._id}
                 className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
@@ -1379,6 +1429,35 @@ async function assignRole(member, role, action) {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {!role.isEveryone && !role.managed && (
+                      <div className="flex overflow-hidden rounded-lg border border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => moveRole(role, -1)}
+                          disabled={
+                            reorderableRoles.findIndex((item) => item._id === role._id) <= 0
+                          }
+                          className="flex h-9 w-9 items-center justify-center text-slate-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:text-slate-700"
+                          title="Move role up"
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => moveRole(role, 1)}
+                          disabled={
+                            reorderableRoles.findIndex((item) => item._id === role._id) ===
+                            reorderableRoles.length - 1
+                          }
+                          className="flex h-9 w-9 items-center justify-center border-l border-white/10 text-slate-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:text-slate-700"
+                          title="Move role down"
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                      </div>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => editRole(role)}

@@ -8,7 +8,7 @@ import Channel from "@/models/Channel";
 import Message from "@/models/Message";
 import User from "@/models/User";
 import { pusherServer } from "@/lib/pusher";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, canManageTarget } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,7 +17,10 @@ export default async function handler(req, res) {
 
   try {
     const session = await getServerSession(req, res, authOptions);
-    if (!session?.user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+    if (!session?.user?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     await connectDB();
 
@@ -45,12 +48,18 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: "Member not found" });
     }
 
+    if (currentMember._id.toString() === targetMember._id.toString()) {
+      return res.status(400).json({ message: "You cannot kick yourself" });
+    }
+
     if (targetMember.role === "owner") {
       return res.status(403).json({ message: "You cannot kick the owner" });
     }
 
-    if (currentMember._id.toString() === targetMember._id.toString()) {
-      return res.status(400).json({ message: "You cannot kick yourself" });
+    if (!(await canManageTarget(currentMember, targetMember))) {
+      return res.status(403).json({
+        message: "You cannot kick a member with an equal or higher role",
+      });
     }
 
     const kickedUsername = targetMember.userId?.username || "Someone";
@@ -59,6 +68,12 @@ export default async function handler(req, res) {
     const moderatorUsername = moderator?.username || "a moderator";
 
     await Member.findByIdAndDelete(targetMember._id);
+
+    await pusherServer.trigger(`server-${serverId}`, "member:kicked", {
+      memberId: targetMember._id,
+      userId: targetMember.userId?._id || targetMember.userId,
+      serverId,
+    });
 
     const firstTextChannel = await Channel.findOne({
       serverId,
