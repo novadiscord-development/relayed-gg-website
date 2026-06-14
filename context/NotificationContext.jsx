@@ -7,15 +7,18 @@ import {
   useState,
 } from "react";
 import { useSession } from "next-auth/react";
+import { useConnectionStatus } from "@/components/providers/ConnectionStatusProvider";
 
 const NotificationContext = createContext(null);
 
 export function NotificationProvider({ children }) {
   const { data: session } = useSession();
+  const connection = useConnectionStatus();
 
   const audioRef = useRef(null);
   const audioUnlockedRef = useRef(false);
   const previousMentionTotalRef = useRef(0);
+  const loadingRef = useRef(false);
 
   const [notifications, setNotifications] = useState({});
   const [loaded, setLoaded] = useState(false);
@@ -32,14 +35,29 @@ export function NotificationProvider({ children }) {
   }, [session?.user?.id]);
 
   useEffect(() => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !connection.online) return;
 
     const interval = setInterval(() => {
       loadNotifications();
-    }, 3000);
+    }, connection.reconnecting ? 7000 : 3000);
 
     return () => clearInterval(interval);
-  }, [session?.user?.id, loaded]);
+  }, [session?.user?.id, loaded, connection.online, connection.reconnecting]);
+
+  useEffect(() => {
+    if (!session?.user?.id || !connection.online) return;
+
+    loadNotifications();
+  }, [connection.online, connection.pusherState, session?.user?.id]);
+
+  useEffect(() => {
+    function handleRetry() {
+      if (session?.user?.id) loadNotifications();
+    }
+
+    window.addEventListener("connection:retry", handleRetry);
+    return () => window.removeEventListener("connection:retry", handleRetry);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     function unlockAudio() {
@@ -60,16 +78,25 @@ export function NotificationProvider({ children }) {
 
     window.addEventListener("click", unlockAudio);
     window.addEventListener("keydown", unlockAudio);
+    window.addEventListener("touchstart", unlockAudio);
 
     return () => {
       window.removeEventListener("click", unlockAudio);
       window.removeEventListener("keydown", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
     };
   }, []);
 
   async function loadNotifications() {
+    if (loadingRef.current || !session?.user?.id) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+
     try {
-      const res = await fetch("/api/notifications");
+      loadingRef.current = true;
+
+      const res = await fetch("/api/notifications", {
+        cache: "no-store",
+      });
       const data = await res.json();
 
       if (!res.ok) return;
@@ -118,6 +145,8 @@ export function NotificationProvider({ children }) {
       setLoaded(true);
     } catch (error) {
       console.error("LOAD_NOTIFICATIONS_ERROR", error);
+    } finally {
+      loadingRef.current = false;
     }
   }
 
@@ -178,6 +207,8 @@ export function NotificationProvider({ children }) {
       return copy;
     });
 
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+
     fetch("/api/notifications/read", {
       method: "POST",
       headers: {
@@ -195,6 +226,8 @@ export function NotificationProvider({ children }) {
       delete copy[serverId];
       return copy;
     });
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
 
     fetch("/api/notifications/read", {
       method: "POST",
