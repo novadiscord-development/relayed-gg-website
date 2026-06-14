@@ -7,21 +7,82 @@ import ChatArea from "@/components/app/ChatArea";
 import MemberSidebar from "@/components/app/MemberSidebar";
 import { Menu, Server, Users, X } from "lucide-react";
 
-function LoadingScreen() {
+
+function RelayedLoadingScreen({
+  title = "Loading...",
+  subtitle = "Getting things ready.",
+  mode = "server",
+}) {
   return (
-    <div className="flex h-[100dvh] items-center justify-center bg-[#050712] px-6 text-white">
-      <div className="text-center">
-        <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
-
-        <h2 className="font-bold">Loading channel...</h2>
-
-        <p className="mt-2 text-sm text-slate-500">
-          Checking channel access.
-        </p>
+    <main className="flex h-[100dvh] overflow-hidden bg-[#050712] text-white">
+      <div className="hidden w-[76px] shrink-0 border-r border-white/10 bg-[#070a15] py-4 md:block">
+        <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-white/[0.06]" />
+        <div className="mx-auto h-px w-10 bg-white/10" />
+        <div className="mt-4 space-y-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="mx-auto h-12 w-12 animate-pulse rounded-2xl bg-white/[0.04]" />
+          ))}
+        </div>
       </div>
-    </div>
+
+      <div className="hidden w-[270px] shrink-0 border-r border-white/10 bg-[#0b0f1d] p-4 md:block">
+        <div className="h-10 animate-pulse rounded-xl bg-white/[0.06]" />
+        <div className="mt-6 space-y-3">
+          <div className="h-3 w-24 animate-pulse rounded bg-white/[0.08]" />
+          {Array.from({ length: 7 }).map((_, index) => (
+            <div key={index} className="h-8 animate-pulse rounded-lg bg-white/[0.04]" />
+          ))}
+        </div>
+      </div>
+
+      <section className="flex min-w-0 flex-1 flex-col">
+        <div className="h-14 shrink-0 border-b border-white/10 bg-[#080b18]" />
+
+        <div className="min-h-0 flex-1 px-4 py-5 md:px-6">
+          <div className="mb-8 flex items-center gap-4">
+            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border border-violet-400/30 bg-violet-500/10 shadow-[0_0_45px_rgba(124,58,237,0.25)]">
+              <div className="absolute inset-0 animate-ping rounded-3xl border border-violet-400/30" />
+              <img src="/logo.png" alt="Relayed" className="relative h-10 w-10 rounded-full" />
+            </div>
+
+            <div>
+              <h2 className="text-xl font-black">{title}</h2>
+              <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            {Array.from({ length: mode === "server" ? 5 : 9 }).map((_, index) => (
+              <div key={index} className="flex animate-pulse gap-3">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-white/[0.06]" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-3 w-32 rounded bg-white/[0.07]" />
+                  <div className={`h-3 rounded bg-white/[0.04] ${index % 3 === 0 ? "w-4/5" : index % 3 === 1 ? "w-2/3" : "w-1/2"}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="hidden w-[280px] shrink-0 border-l border-white/10 bg-[#0b0f1d] p-4 xl:block">
+        <div className="h-10 animate-pulse rounded-xl bg-white/[0.06]" />
+        <div className="mt-6 space-y-3">
+          {Array.from({ length: 10 }).map((_, index) => (
+            <div key={index} className="flex items-center gap-3">
+              <div className="h-9 w-9 animate-pulse rounded-full bg-white/[0.06]" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-3 w-24 animate-pulse rounded bg-white/[0.06]" />
+                <div className="h-2 w-16 animate-pulse rounded bg-white/[0.04]" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </main>
   );
 }
+
 
 export default function ServerChannelPage() {
   const router = useRouter();
@@ -103,7 +164,13 @@ export default function ServerChannelPage() {
   }
 
   if (checkingAccess) {
-    return <LoadingScreen />;
+    return (
+      <RelayedLoadingScreen
+        title="Loading channel..."
+        subtitle="Checking channel access."
+        mode="channel"
+      />
+    );
   }
 
   return (

@@ -306,7 +306,11 @@ export default function ChatArea() {
 
   async function loadMessages(initial = true) {
     try {
-      initial ? setLoading(true) : setLoadingMore(true);
+      if (initial) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
 
       let url = `/api/messages/get-messages?channelId=${channelId}`;
 

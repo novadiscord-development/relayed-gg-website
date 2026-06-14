@@ -143,7 +143,7 @@ export default function ExploreServersPage() {
   }, [servers]);
 
   return (
-    <main className="flex h-screen overflow-hidden bg-[#050712] text-white">
+    <main className="flex h-[100dvh] overflow-hidden bg-[#050712] text-white">
       <ServerBar />
 
       <section className="min-w-0 flex-1 overflow-y-auto">
@@ -222,13 +222,47 @@ export default function ExploreServersPage() {
           )}
 
           {loading ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-64 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]"
-                />
-              ))}
+            <div>
+              <div className="mb-6 flex items-center gap-4">
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-3xl border border-violet-400/30 bg-violet-500/10 shadow-[0_0_45px_rgba(124,58,237,0.25)]">
+                  <div className="absolute inset-0 animate-ping rounded-3xl border border-violet-400/30" />
+                  <img
+                    src="/logo.png"
+                    alt="Relayed"
+                    className="relative h-10 w-10 rounded-full"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-lg font-black text-white">
+                    Loading Explore...
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    Finding public communities.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]"
+                  >
+                    <div className="h-28 animate-pulse bg-white/[0.06]" />
+                    <div className="px-5 pb-5 pt-11">
+                      <div className="mb-3 h-5 w-40 animate-pulse rounded bg-white/[0.08]" />
+                      <div className="mb-5 h-3 w-24 animate-pulse rounded bg-white/[0.05]" />
+                      <div className="space-y-2">
+                        <div className="h-3 w-full animate-pulse rounded bg-white/[0.04]" />
+                        <div className="h-3 w-4/5 animate-pulse rounded bg-white/[0.04]" />
+                        <div className="h-3 w-2/3 animate-pulse rounded bg-white/[0.04]" />
+                      </div>
+                      <div className="mt-5 h-11 animate-pulse rounded-xl bg-white/[0.06]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : servers.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.03] p-12 text-center">
