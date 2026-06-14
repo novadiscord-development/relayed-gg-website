@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
+import generateSnowflake from "@/lib/generateSnowflake";
 
 import Server from "@/models/Server";
 import Member from "@/models/Member";
@@ -69,6 +70,7 @@ export default async function handler(req, res) {
     const isPublic = visibility === "public";
 
     const server = await Server.create({
+      publicId: generateSnowflake(),
       name: cleanName,
       ownerId: session.user.id,
       description: cleanDescription,
