@@ -128,9 +128,6 @@ export default function ClientAppEffects() {
     </>
   );
 }
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import AppLoader from "@/components/app/AppLoader";
 import { CheckCircle2, WifiOff } from "lucide-react";
 
 export default function ClientAppEffects() {
