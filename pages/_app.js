@@ -4,7 +4,7 @@ import { SessionProvider } from "next-auth/react";
 import { NotificationProvider } from "@/context/NotificationContext";
 import NotificationListener from "@/components/providers/NotificationListener";
 import PresenceProvider from "@/components/providers/PresenceProvider";
-import MaintenancePage from "@/components/maintainance/MaintainancePage";
+import MaintenancePage from "@/components/MaintenancePage";
 
 const ClientAppEffects = dynamic(
   () => import("@/components/providers/ClientAppEffects"),
