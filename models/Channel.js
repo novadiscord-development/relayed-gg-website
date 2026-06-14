@@ -38,6 +38,13 @@ const ChannelSchema = new mongoose.Schema(
       required: true,
     },
 
+    
+    publicId: {
+      type: Number,
+      unique: true,
+      index: true,
+    },
+
     name: {
       type: String,
       required: true,

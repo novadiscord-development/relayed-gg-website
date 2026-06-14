@@ -582,7 +582,7 @@ export default function UserProfilePage() {
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                           {mutualServers.map((server) => (
                             <div
-                              key={server._id}
+                              key={server.publicId}
                               className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"
                             >
                               <Image

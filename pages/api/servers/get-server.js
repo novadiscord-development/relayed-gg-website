@@ -46,7 +46,9 @@ export default async function handler(req, res) {
       });
     }
 
-    const server = await Server.findById(serverId);
+    const server = await Server.findOne({
+      publicId: serverId,
+    });
 
     if (!server) {
       return res.status(404).json({
@@ -58,7 +60,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       server: {
-        _id: server._id,
+        _id: server.publicId,
         name: server.name,
         icon: server.icon,
         banner: server.banner,

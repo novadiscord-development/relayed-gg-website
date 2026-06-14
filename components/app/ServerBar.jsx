@@ -135,7 +135,7 @@ export default function ServerBar({ mobile = false, onNavigate }) {
 
   function handleServerCreated(data) {
     setServers((prev) => [...prev, data.server]);
-    router.push(`/app/server/${data.server._id}`);
+    router.push(`/app/server/${data.server.publicId}`);
     onNavigate?.();
   }
 
