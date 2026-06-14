@@ -1,128 +1,168 @@
 export default function Maintenance() {
   return (
     <main className="page">
+      <div className="grid" />
       <div className="stars" />
       <div className="orb orbOne" />
       <div className="orb orbTwo" />
+      <div className="orb orbThree" />
 
-      <div className="scene">
-        <div className="gear gearOne">⚙</div>
-        <div className="gear gearTwo">⚙</div>
-        <div className="spark sparkOne" />
-        <div className="spark sparkTwo" />
-        <div className="spark sparkThree" />
+      <section className="scene" aria-labelledby="maintenance-title">
+        <div className="badge">
+          <span className="statusDot" />
+          Scheduled maintenance
+        </div>
 
-        <h1>WHOOPS!</h1>
-        <h2>We are currently under maintenance</h2>
+        <div className="logoWrap">
+          <div className="pulseRing" />
+          <img src="/logo.png" alt="Relayed.gg" className="logo" />
+        </div>
+
+        <h1 id="maintenance-title">
+          relayed<span>.gg</span>
+        </h1>
+
+        <h2>We&rsquo;re tuning things up</h2>
 
         <p>
-          Our team is tuning things up behind the scenes. Please check back
-          shortly.
+          Relayed is temporarily offline while we upgrade a few systems behind
+          the scenes. Your servers, messages, and settings are safe.
         </p>
 
-        <div className="loader">
+        <div className="loader" aria-hidden="true">
           <span />
           <span />
           <span />
         </div>
-      </div>
+
+        <div className="footerText">
+          <span>Thanks for your patience.</span>
+          <span className="divider" />
+          <span>We&rsquo;ll be back shortly.</span>
+        </div>
+      </section>
 
       <style jsx>{`
         .page {
-          min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
           position: relative;
-          background: radial-gradient(circle at top, #5865f2 0%, transparent 32%),
-            linear-gradient(135deg, #0b1020, #111827 55%, #020617);
+          background:
+            radial-gradient(circle at top, rgba(124, 58, 237, 0.28), transparent 38%),
+            radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.16), transparent 34%),
+            linear-gradient(135deg, #050712, #080b18 48%, #020617);
           color: white;
-          font-family: Inter, system-ui, sans-serif;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+            "Segoe UI", sans-serif;
           padding: 24px;
         }
 
         .scene {
           position: relative;
-          z-index: 2;
+          z-index: 3;
           width: min(760px, 100%);
-          padding: 70px 42px;
+          padding: 58px 42px;
           text-align: center;
-          border-radius: 36px;
-          background: rgba(255, 255, 255, 0.09);
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          box-shadow: 0 30px 100px rgba(0, 0, 0, 0.45);
+          border-radius: 34px;
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.09),
+            rgba(255, 255, 255, 0.035)
+          );
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          box-shadow:
+            0 30px 100px rgba(0, 0, 0, 0.55),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
           backdrop-filter: blur(24px);
-          animation: floatCard 4.5s ease-in-out infinite;
+          animation: floatCard 5s ease-in-out infinite;
+        }
+
+        .badge {
+          width: fit-content;
+          margin: 0 auto 26px;
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          border-radius: 999px;
+          border: 1px solid rgba(167, 139, 250, 0.24);
+          background: rgba(124, 58, 237, 0.12);
+          color: #ddd6fe;
+          padding: 9px 14px;
+          font-size: 0.78rem;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+
+        .statusDot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #a78bfa;
+          box-shadow: 0 0 22px rgba(167, 139, 250, 0.95);
+          animation: statusPulse 1.7s ease-in-out infinite;
+        }
+
+        .logoWrap {
+          position: relative;
+          width: 104px;
+          height: 104px;
+          margin: 0 auto 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 30px;
+          border: 1px solid rgba(167, 139, 250, 0.25);
+          background: rgba(124, 58, 237, 0.1);
+          box-shadow: 0 0 55px rgba(124, 58, 237, 0.28);
+        }
+
+        .pulseRing {
+          position: absolute;
+          inset: 0;
+          border-radius: 30px;
+          border: 1px solid rgba(167, 139, 250, 0.28);
+          animation: ping 1.9s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        .logo {
+          position: relative;
+          width: 62px;
+          height: 62px;
+          border-radius: 999px;
+          object-fit: cover;
         }
 
         h1 {
           margin: 0;
-          font-size: clamp(4rem, 13vw, 9rem);
+          font-size: clamp(3.25rem, 10vw, 7.5rem);
           line-height: 0.9;
           letter-spacing: -0.08em;
-          text-shadow: 0 0 35px rgba(88, 101, 242, 0.7);
-          animation: pop 1.1s ease both, glow 2.4s ease-in-out infinite;
+          font-weight: 1000;
+          text-shadow: 0 0 42px rgba(124, 58, 237, 0.65);
+          animation: pop 900ms ease both, glow 2.6s ease-in-out infinite;
+        }
+
+        h1 span {
+          color: #a78bfa;
         }
 
         h2 {
-          margin: 18px 0 0;
-          font-size: clamp(1.5rem, 4vw, 2.8rem);
+          margin: 20px 0 0;
+          font-size: clamp(1.45rem, 4vw, 2.6rem);
+          letter-spacing: -0.04em;
+          font-weight: 1000;
         }
 
         p {
-          max-width: 520px;
-          margin: 20px auto 0;
-          color: rgba(255, 255, 255, 0.75);
-          line-height: 1.7;
-          font-size: 1.05rem;
-        }
-
-        .gear {
-          position: absolute;
-          font-size: 64px;
-          opacity: 0.8;
-          filter: drop-shadow(0 0 20px rgba(88, 101, 242, 0.6));
-        }
-
-        .gearOne {
-          top: 28px;
-          left: 34px;
-          animation: spin 5s linear infinite;
-        }
-
-        .gearTwo {
-          right: 42px;
-          bottom: 34px;
-          font-size: 82px;
-          animation: spinReverse 7s linear infinite;
-        }
-
-        .spark {
-          position: absolute;
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: #facc15;
-          box-shadow: 0 0 24px #facc15;
-          animation: sparkMove 2.5s ease-in-out infinite;
-        }
-
-        .sparkOne {
-          top: 22%;
-          right: 22%;
-        }
-
-        .sparkTwo {
-          bottom: 24%;
-          left: 18%;
-          animation-delay: -0.8s;
-        }
-
-        .sparkThree {
-          top: 50%;
-          left: 10%;
-          animation-delay: -1.4s;
+          max-width: 560px;
+          margin: 18px auto 0;
+          color: rgba(226, 232, 240, 0.76);
+          line-height: 1.75;
+          font-size: 1.02rem;
         }
 
         .loader {
@@ -133,10 +173,11 @@ export default function Maintenance() {
         }
 
         .loader span {
-          width: 13px;
-          height: 13px;
+          width: 12px;
+          height: 12px;
           border-radius: 50%;
-          background: #ffffff;
+          background: #a78bfa;
+          box-shadow: 0 0 24px rgba(167, 139, 250, 0.75);
           animation: bounce 1.2s infinite ease-in-out;
         }
 
@@ -148,49 +189,93 @@ export default function Maintenance() {
           animation-delay: 0.3s;
         }
 
+        .footerText {
+          margin: 30px auto 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: 10px;
+          color: rgba(148, 163, 184, 0.82);
+          font-size: 0.88rem;
+          font-weight: 700;
+        }
+
+        .divider {
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background: rgba(148, 163, 184, 0.55);
+        }
+
         .orb {
           position: absolute;
           width: 420px;
           height: 420px;
           border-radius: 50%;
-          filter: blur(80px);
-          opacity: 0.45;
-          animation: drift 9s ease-in-out infinite;
+          filter: blur(86px);
+          opacity: 0.42;
+          animation: drift 10s ease-in-out infinite;
+          pointer-events: none;
         }
 
         .orbOne {
-          background: #5865f2;
-          top: -120px;
-          left: -110px;
+          background: #7c3aed;
+          top: -150px;
+          left: -130px;
         }
 
         .orbTwo {
-          background: #22c55e;
-          right: -140px;
-          bottom: -140px;
+          background: #06b6d4;
+          right: -160px;
+          bottom: -160px;
           animation-delay: -4s;
+        }
+
+        .orbThree {
+          width: 320px;
+          height: 320px;
+          background: #4f46e5;
+          left: 50%;
+          bottom: -220px;
+          transform: translateX(-50%);
+          animation-delay: -7s;
         }
 
         .stars {
           position: absolute;
           inset: 0;
-          background-image: radial-gradient(#ffffff 1px, transparent 1px);
-          background-size: 38px 38px;
-          opacity: 0.12;
-          animation: starsMove 18s linear infinite;
+          background-image: radial-gradient(rgba(255, 255, 255, 0.9) 1px, transparent 1px);
+          background-size: 42px 42px;
+          opacity: 0.1;
+          animation: starsMove 22s linear infinite;
+          pointer-events: none;
+        }
+
+        .grid {
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+          background-size: 64px 64px;
+          mask-image: radial-gradient(circle at center, black, transparent 72%);
+          opacity: 0.36;
+          pointer-events: none;
         }
 
         @keyframes floatCard {
           50% {
-            transform: translateY(-16px) rotate(0.4deg);
+            transform: translateY(-12px);
           }
         }
 
         @keyframes pop {
           from {
             opacity: 0;
-            transform: scale(0.86) translateY(20px);
+            transform: scale(0.92) translateY(16px);
           }
+
           to {
             opacity: 1;
             transform: scale(1) translateY(0);
@@ -199,19 +284,7 @@ export default function Maintenance() {
 
         @keyframes glow {
           50% {
-            text-shadow: 0 0 55px rgba(88, 101, 242, 1);
-          }
-        }
-
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @keyframes spinReverse {
-          to {
-            transform: rotate(-360deg);
+            text-shadow: 0 0 64px rgba(124, 58, 237, 0.95);
           }
         }
 
@@ -222,43 +295,79 @@ export default function Maintenance() {
             transform: translateY(0);
             opacity: 0.45;
           }
+
           40% {
-            transform: translateY(-14px);
+            transform: translateY(-13px);
             opacity: 1;
           }
         }
 
         @keyframes drift {
           50% {
-            transform: translate(70px, 40px) scale(1.12);
+            transform: translate(70px, 38px) scale(1.12);
           }
         }
 
         @keyframes starsMove {
           to {
-            background-position: 380px 380px;
+            background-position: 420px 420px;
           }
         }
 
-        @keyframes sparkMove {
-          0%,
+        @keyframes ping {
+          75%,
           100% {
-            transform: translate(0, 0) scale(0.8);
-            opacity: 0.4;
+            transform: scale(1.35);
+            opacity: 0;
           }
+        }
+
+        @keyframes statusPulse {
           50% {
-            transform: translate(22px, -26px) scale(1.4);
-            opacity: 1;
+            opacity: 0.35;
+            transform: scale(0.82);
           }
         }
 
         @media (max-width: 640px) {
-          .scene {
-            padding: 58px 24px;
+          .page {
+            padding: 16px;
           }
 
-          .gear {
-            opacity: 0.35;
+          .scene {
+            padding: 42px 22px;
+            border-radius: 28px;
+          }
+
+          .logoWrap {
+            width: 88px;
+            height: 88px;
+            border-radius: 26px;
+          }
+
+          .pulseRing {
+            border-radius: 26px;
+          }
+
+          .logo {
+            width: 54px;
+            height: 54px;
+          }
+
+          p {
+            font-size: 0.95rem;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .scene,
+          .stars,
+          .orb,
+          .pulseRing,
+          .loader span,
+          .statusDot,
+          h1 {
+            animation: none;
           }
         }
       `}</style>
