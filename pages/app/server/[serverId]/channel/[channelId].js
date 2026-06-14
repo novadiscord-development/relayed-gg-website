@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import ServerBar from "@/components/app/ServerBar";
 import ChannelSidebar from "@/components/app/ChannelSidebar";
 import ChatHeader from "@/components/app/ChatHeader";
@@ -6,7 +7,27 @@ import ChatArea from "@/components/app/ChatArea";
 import MemberSidebar from "@/components/app/MemberSidebar";
 import { Menu, Server, Users, X } from "lucide-react";
 
+function LoadingScreen() {
+  return (
+    <div className="flex h-[100dvh] items-center justify-center bg-[#050712] px-6 text-white">
+      <div className="text-center">
+        <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+
+        <h2 className="font-bold">Loading channel...</h2>
+
+        <p className="mt-2 text-sm text-slate-500">
+          Checking channel access.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function ServerChannelPage() {
+  const router = useRouter();
+  const { serverId, channelId } = router.query;
+
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [serverDrawerOpen, setServerDrawerOpen] = useState(false);
   const [channelDrawerOpen, setChannelDrawerOpen] = useState(false);
   const [memberDrawerOpen, setMemberDrawerOpen] = useState(false);
@@ -14,10 +35,75 @@ export default function ServerChannelPage() {
   const anyDrawerOpen =
     serverDrawerOpen || channelDrawerOpen || memberDrawerOpen;
 
+  useEffect(() => {
+    if (!serverId || !channelId) return;
+
+    checkAccess();
+  }, [serverId, channelId]);
+
+  async function checkAccess() {
+    try {
+      setCheckingAccess(true);
+
+      const res = await fetch(`/api/channels/get-channels?serverId=${serverId}`);
+      const data = await res.json();
+
+      if (res.status === 401) {
+        router.replace(`/login?callbackUrl=${encodeURIComponent(router.asPath)}`);
+        return;
+      }
+
+      if (res.status === 403) {
+        router.replace("/403");
+        return;
+      }
+
+      if (res.status === 404) {
+        router.replace("/404");
+        return;
+      }
+
+      if (!res.ok) {
+        router.replace("/404");
+        return;
+      }
+
+      const channel = (data.channels || []).find(
+        (item) => item._id?.toString() === channelId?.toString()
+      );
+
+      if (!channel) {
+        router.replace("/403");
+        return;
+      }
+
+      if (channel.type !== "text") {
+        const firstTextChannel = data.firstTextChannel;
+
+        if (firstTextChannel?._id) {
+          router.replace(`/app/server/${serverId}/channel/${firstTextChannel._id}`);
+          return;
+        }
+
+        router.replace(`/app/server/${serverId}`);
+        return;
+      }
+    } catch (error) {
+      console.error("CHANNEL_ACCESS_CHECK_ERROR", error);
+      router.replace("/404");
+    } finally {
+      setCheckingAccess(false);
+    }
+  }
+
   function closeDrawers() {
     setServerDrawerOpen(false);
     setChannelDrawerOpen(false);
     setMemberDrawerOpen(false);
+  }
+
+  if (checkingAccess) {
+    return <LoadingScreen />;
   }
 
   return (

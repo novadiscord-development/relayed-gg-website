@@ -152,12 +152,12 @@ export default function MeHomePage() {
         <title>Friends | Relayed.gg</title>
       </Head>
 
-      <main className="flex h-screen overflow-hidden bg-[#050712] text-white">
+      <main className="flex h-[100dvh] overflow-hidden bg-[#050712] text-white">
         <ServerBar />
-        <DMChannelSidebar />
+        <div className="hidden md:flex"><DMChannelSidebar /></div>
 
         <section className="flex min-w-0 flex-1 flex-col bg-[#080b18]">
-          <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-6">
+          <div className="flex min-h-16 shrink-0 flex-wrap items-center gap-2 border-b border-white/10 px-3 py-3 md:h-16 md:flex-nowrap md:gap-3 md:px-6 md:py-0">
             <Users size={20} className="text-slate-400" />
             <h1 className="font-black">Friends</h1>
 
@@ -185,7 +185,7 @@ export default function MeHomePage() {
             ))}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:p-6">
             {activeTab === "friends" && (
               <>
                 <SearchBox
@@ -433,7 +433,7 @@ function SearchBox({ value, onChange, placeholder }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+        className="w-full bg-transparent text-[16px] text-white outline-none placeholder:text-slate-500 sm:text-sm"
       />
     </div>
   );
@@ -441,7 +441,7 @@ function SearchBox({ value, onChange, placeholder }) {
 
 function UserRow({ user, subtitle, right }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:bg-white/[0.05]">
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 transition hover:bg-white/[0.05] md:p-4">
       <div className="flex min-w-0 items-center gap-3">
         <Image
           src={user?.avatar || user?.image || "/logo.png"}
