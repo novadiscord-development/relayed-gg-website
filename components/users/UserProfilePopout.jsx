@@ -65,27 +65,62 @@ export default function UserProfilePopout({
       ? "Do Not Disturb"
       : "Offline";
 
+  function getVisibleRoles(targetMember) {
+    return (targetMember?.roles || [])
+      .filter((role) => !role.isEveryone && !role.managed)
+      .sort((a, b) => (b.position || 0) - (a.position || 0));
+  }
+
+  function getHighestRole(targetMember) {
+    const visibleRoles = getVisibleRoles(targetMember);
+    return visibleRoles[0] || null;
+  }
+
+  function getHighestRolePosition(targetMember) {
+    if (!targetMember) return 0;
+    if (targetMember.role === "owner") return Number.MAX_SAFE_INTEGER;
+
+    return getHighestRole(targetMember)?.position || 0;
+  }
+
   function getRolePermissions(targetMember) {
     const permissions = {};
 
-    (targetMember?.roles || [])
-      .filter((role) => !role.isEveryone)
-      .forEach((role) => {
-        Object.entries(role.permissions || {}).forEach(([key, value]) => {
-          if (value === true) permissions[key] = true;
-        });
+    if (targetMember?.role === "owner") {
+      return {
+        kickMembers: true,
+        banMembers: true,
+        timeoutMembers: true,
+        manageRoles: true,
+        manageMessages: true,
+        manageChannels: true,
+        manageServer: true,
+      };
+    }
+
+    getVisibleRoles(targetMember).forEach((role) => {
+      Object.entries(role.permissions || {}).forEach(([key, value]) => {
+        if (value === true) permissions[key] = true;
       });
+    });
 
     return permissions;
   }
 
   const currentPermissions = getRolePermissions(currentMember);
 
-  const canModerate =
+  const canManageThisMember =
     currentMember &&
     friendStatus !== "self" &&
     currentMember._id !== member?._id &&
     member?.role !== "owner" &&
+    (
+      currentMember.role === "owner" ||
+      getHighestRolePosition(currentMember) > getHighestRolePosition(member)
+    );
+
+  const canModerate =
+    canManageThisMember &&
     (
       currentMember.role === "owner" ||
       currentPermissions.kickMembers ||
@@ -448,7 +483,9 @@ export default function UserProfilePopout({
 
   const mutualFriendsCount = user.mutualFriends?.length || user.mutualFriendCount || 0;
   const mutualServersCount = user.mutualServers?.length || user.mutualServerCount || 0;
-  const roles = (member?.roles || []).filter((role) => !role.isEveryone);
+  const roles = getVisibleRoles(member);
+  const highestRole = getHighestRole(member);
+  const usernameColor = highestRole?.color || null;
 
   return (
     <div
@@ -487,43 +524,54 @@ export default function UserProfilePopout({
 
                 {moderationOpen && (
                   <div className="absolute right-0 top-12 z-[10000] w-56 rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl">
-                    <button
-                      type="button"
-                      onClick={timeoutMember}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-orange-300 hover:bg-orange-500/10"
-                    >
-                      Timeout
-                      <Clock3 size={15} />
-                    </button>
+                    {(currentMember?.role === "owner" ||
+                      currentPermissions.timeoutMembers) && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={timeoutMember}
+                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-orange-300 hover:bg-orange-500/10"
+                        >
+                          Timeout
+                          <Clock3 size={15} />
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={removeTimeout}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-green-300 hover:bg-green-500/10"
-                    >
-                      Remove Timeout
-                      <Shield size={15} />
-                    </button>
+                        <button
+                          type="button"
+                          onClick={removeTimeout}
+                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-green-300 hover:bg-green-500/10"
+                        >
+                          Remove Timeout
+                          <Shield size={15} />
+                        </button>
+                      </>
+                    )}
 
                     <div className="my-1 h-px bg-white/10" />
 
-                    <button
-                      type="button"
-                      onClick={kickMember}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
-                    >
-                      Kick
-                      <UserMinus size={15} />
-                    </button>
+                    {(currentMember?.role === "owner" ||
+                      currentPermissions.kickMembers) && (
+                      <button
+                        type="button"
+                        onClick={kickMember}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-red-500/10"
+                      >
+                        Kick
+                        <UserMinus size={15} />
+                      </button>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={banMember}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
-                    >
-                      Ban
-                      <ShieldBan size={15} />
-                    </button>
+                    {(currentMember?.role === "owner" ||
+                      currentPermissions.banMembers) && (
+                      <button
+                        type="button"
+                        onClick={banMember}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                      >
+                        Ban
+                        <ShieldBan size={15} />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -588,7 +636,10 @@ export default function UserProfilePopout({
               onClick={viewProfile}
               className="max-w-full text-left"
             >
-              <h2 className="truncate text-2xl font-black leading-tight text-white hover:underline">
+              <h2
+                className="truncate text-2xl font-black leading-tight text-white hover:underline"
+                style={usernameColor ? { color: usernameColor } : undefined}
+              >
                 {user.username || user.name || "Unknown User"}
               </h2>
             </button>

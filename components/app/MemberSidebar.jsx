@@ -20,7 +20,21 @@ export default function MemberSidebar() {
     loadPresence();
 
     const interval = setInterval(loadPresence, 1000);
-    return () => clearInterval(interval);
+
+    function refreshMembers() {
+      loadMembers();
+    }
+
+    window.addEventListener("member:updated", refreshMembers);
+    window.addEventListener("role:updated", refreshMembers);
+    window.addEventListener("roles:updated", refreshMembers);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("member:updated", refreshMembers);
+      window.removeEventListener("role:updated", refreshMembers);
+      window.removeEventListener("roles:updated", refreshMembers);
+    };
   }, [serverId]);
 
   async function loadMembers() {
@@ -72,15 +86,15 @@ export default function MemberSidebar() {
   }
 
   function getVisibleRoles(member) {
-    return (member?.roles || []).filter((role) => !role.isEveryone);
+    return (member?.roles || [])
+      .filter((role) => !role.isEveryone && !role.managed)
+      .sort((a, b) => (b.position || 0) - (a.position || 0));
   }
 
   function getHighestRole(member) {
     const roles = getVisibleRoles(member);
-
     if (!roles.length) return null;
-
-    return [...roles].sort((a, b) => (b.position || 0) - (a.position || 0))[0];
+    return roles[0];
   }
 
   function getDisplayNameColor(member) {
@@ -130,6 +144,11 @@ export default function MemberSidebar() {
 
           if (a.role === "owner" && b.role !== "owner") return -1;
           if (b.role === "owner" && a.role !== "owner") return 1;
+
+          const aTop = getHighestRole(a)?.position || 0;
+          const bTop = getHighestRole(b)?.position || 0;
+
+          if (aTop !== bTop) return bTop - aTop;
 
           return (a.userId?.username || "").localeCompare(
             b.userId?.username || ""
