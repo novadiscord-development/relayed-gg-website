@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-export default function AppLoader() {
+export default function AppLoader({ label = "Connecting..." }) {
   return (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-[#050712] px-6 text-white">
       <div className="text-center">
@@ -21,7 +21,7 @@ export default function AppLoader() {
           relayed<span className="text-violet-400">.gg</span>
         </h2>
 
-        <p className="mt-2 text-sm text-slate-500">Connecting...</p>
+        <p className="mt-2 text-sm text-slate-500">{label}</p>
 
         <div className="mx-auto mt-6 h-1.5 w-52 overflow-hidden rounded-full bg-white/[0.05]">
           <div className="h-full w-1/3 animate-[loadingBar_1.1s_ease-in-out_infinite] rounded-full bg-violet-500" />

@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import AppLoader from "@/components/app/AppLoader";
 import { CheckCircle2, WifiOff } from "lucide-react";
 
+const MIN_LOADER_TIME = 3000;
+
 export default function ClientAppEffects() {
   const router = useRouter();
+
+  const loadStartedAtRef = useRef(Date.now());
+  const hideLoaderTimeoutRef = useRef(null);
+  const restoredTimeoutRef = useRef(null);
 
   const [appLoading, setAppLoading] = useState(true);
   const [online, setOnline] = useState(true);
@@ -12,28 +18,38 @@ export default function ClientAppEffects() {
   const [showRestored, setShowRestored] = useState(false);
 
   useEffect(() => {
-    let timeout;
-
-    function finishLoading() {
-      clearTimeout(timeout);
-
-      timeout = setTimeout(() => {
-        setAppLoading(false);
-      }, 450);
-    }
-
     function startLoading() {
+      clearTimeout(hideLoaderTimeoutRef.current);
+      loadStartedAtRef.current = Date.now();
       setAppLoading(true);
     }
 
-    finishLoading();
+    function finishLoading() {
+      const elapsed = Date.now() - loadStartedAtRef.current;
+      const remaining = Math.max(MIN_LOADER_TIME - elapsed, 0);
+
+      clearTimeout(hideLoaderTimeoutRef.current);
+
+      hideLoaderTimeoutRef.current = setTimeout(() => {
+        setAppLoading(false);
+      }, remaining);
+    }
+
+    startLoading();
+
+    if (document.readyState === "complete") {
+      finishLoading();
+    } else {
+      window.addEventListener("load", finishLoading, { once: true });
+    }
 
     router.events.on("routeChangeStart", startLoading);
     router.events.on("routeChangeComplete", finishLoading);
     router.events.on("routeChangeError", finishLoading);
 
     return () => {
-      clearTimeout(timeout);
+      clearTimeout(hideLoaderTimeoutRef.current);
+      window.removeEventListener("load", finishLoading);
       router.events.off("routeChangeStart", startLoading);
       router.events.off("routeChangeComplete", finishLoading);
       router.events.off("routeChangeError", finishLoading);
@@ -51,7 +67,8 @@ export default function ClientAppEffects() {
       window.dispatchEvent(new Event("connection:retry"));
       window.dispatchEvent(new Event("focus"));
 
-      setTimeout(() => {
+      clearTimeout(restoredTimeoutRef.current);
+      restoredTimeoutRef.current = setTimeout(() => {
         setShowRestored(false);
       }, 2500);
     }
@@ -59,12 +76,14 @@ export default function ClientAppEffects() {
     function handleOffline() {
       setOnline(false);
       setShowRestored(false);
+      clearTimeout(restoredTimeoutRef.current);
     }
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
     return () => {
+      clearTimeout(restoredTimeoutRef.current);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
@@ -79,7 +98,8 @@ export default function ClientAppEffects() {
       window.dispatchEvent(new Event("focus"));
       setShowRestored(true);
 
-      setTimeout(() => {
+      clearTimeout(restoredTimeoutRef.current);
+      restoredTimeoutRef.current = setTimeout(() => {
         setShowRestored(false);
       }, 2500);
     }
@@ -87,7 +107,7 @@ export default function ClientAppEffects() {
 
   return (
     <>
-      {appLoading && <AppLoader />}
+      {appLoading && <AppLoader label="Starting Relayed..." />}
 
       {ready && showRestored && (
         <div className="pointer-events-none fixed left-1/2 top-3 z-[20000] -translate-x-1/2 px-3">
