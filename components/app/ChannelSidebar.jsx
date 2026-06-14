@@ -250,8 +250,8 @@ export default function ChannelSidebar() {
     const pusherClient = getPusherClient();
     const pusherChannel = pusherClient.subscribe(`server-${serverId}`);
 
-    function handleChannelPermissionsUpdated() {
-      loadSidebarData();
+    async function handleChannelPermissionsUpdated() {
+      await loadSidebarData();
     }
 
     pusherChannel.bind(
@@ -264,6 +264,7 @@ export default function ChannelSidebar() {
         "channel-permissions:updated",
         handleChannelPermissionsUpdated
       );
+
       pusherClient.unsubscribe(`server-${serverId}`);
     };
   }, [serverId]);
@@ -999,12 +1000,14 @@ export default function ChannelSidebar() {
           channel={settingsChannel}
           serverId={serverId}
           onClose={() => setSettingsChannel(null)}
-          onUpdated={(updatedChannel) => {
+          onUpdated={async (updatedChannel) => {
             setChannels((prev) =>
               prev.map((item) =>
                 item._id === updatedChannel._id ? updatedChannel : item
               )
             );
+
+            await loadSidebarData();
             window.dispatchEvent(new Event("channel:updated"));
           }}
         />
