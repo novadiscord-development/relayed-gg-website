@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import Image from "next/image";
 import UserProfilePopout from "@/components/users/UserProfilePopout";
 
-export default function MemberSidebar() {
+export default function MemberSidebar({ mobileOpen = false, onMobileClose }) {
   const router = useRouter();
   const { serverId } = router.query;
 
@@ -278,7 +278,24 @@ export default function MemberSidebar() {
 
   return (
     <>
-      <aside className="hidden h-screen w-[280px] shrink-0 border-l border-white/10 bg-[#0b0f1d] xl:flex xl:flex-col">
+      <aside
+        className={`${
+          mobileOpen
+            ? "fixed inset-y-0 right-0 z-[10020] flex w-[86vw] max-w-[320px] translate-x-0 flex-col border-l border-white/10 bg-[#0b0f1d] shadow-2xl transition-transform duration-200 xl:static xl:z-auto xl:w-[280px] xl:max-w-none xl:shadow-none"
+            : "fixed inset-y-0 right-0 z-[10020] flex w-[86vw] max-w-[320px] translate-x-full flex-col border-l border-white/10 bg-[#0b0f1d] shadow-2xl transition-transform duration-200 xl:static xl:z-auto xl:w-[280px] xl:max-w-none xl:translate-x-0 xl:shadow-none"
+        }`}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 p-4 xl:hidden">
+          <p className="font-black text-white">Members</p>
+          <button
+            type="button"
+            onClick={onMobileClose}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-sm font-bold text-slate-300"
+          >
+            Close
+          </button>
+        </div>
+
         <div className="shrink-0 p-4">
           <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
             <input

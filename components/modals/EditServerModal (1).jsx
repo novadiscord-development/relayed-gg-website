@@ -974,7 +974,7 @@ function removeServerTag(tag) {
 
           <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
             <div
-              className="relative h-44 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500"
+              className="relative h-36 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500 sm:h-44"
               style={
                 banner
                   ? {
@@ -1018,7 +1018,7 @@ function removeServerTag(tag) {
           </div>
 
           <div className="mt-6 border-b border-white/10 pb-8">
-            <div className="grid gap-8 md:grid-cols-[180px_1fr]">
+            <div className="grid gap-6 md:grid-cols-[180px_1fr] md:gap-8">
               <div>
                 <div className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-violet-600 text-3xl font-black text-white">
                   {icon ? (
@@ -1081,8 +1081,8 @@ function removeServerTag(tag) {
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    maxLength={100}
-                    className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-violet-500"
+                    maxLength={80}
+                    className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-[16px] text-white outline-none focus:ring-2 focus:ring-violet-500 sm:text-sm"
                   />
                 </div>
               </div>
@@ -1100,7 +1100,7 @@ function removeServerTag(tag) {
               rows={4}
               maxLength={500}
               placeholder="Describe your server"
-              className="w-full resize-none rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-violet-500"
+              className="w-full resize-none rounded bg-[#1e1f22] px-3 py-2.5 text-[16px] text-white outline-none placeholder:text-slate-600 focus:ring-2 focus:ring-violet-500 sm:text-sm"
             />
 
             <div className="mt-2 text-right text-xs text-slate-600">
@@ -1311,7 +1311,7 @@ function removeServerTag(tag) {
     if (activeTab === "members") {
       return (
         <div>
-          <h2 className="text-2xl font-black text-white">
+          <h2 className="text-xl font-black text-white md:text-2xl">
             Members <span className="text-slate-500">({members.length})</span>
           </h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -2206,8 +2206,29 @@ function removeServerTag(tag) {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-y-auto p-6 md:p-10">
-          <div className="mx-auto max-w-5xl">{renderContent()}</div>
+        <main className="min-w-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 md:p-10">
+          <div className="mx-auto max-w-5xl">
+          <div className="mb-4 flex gap-2 overflow-x-auto border-b border-white/10 pb-3 md:hidden">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition ${
+                    activeTab === tab.id
+                      ? "bg-violet-600 text-white"
+                      : "bg-white/[0.04] text-slate-400"
+                  }`}
+                >
+                  <Icon size={15} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>{renderContent()}</div>
         </main>
 
         <button

@@ -203,7 +203,7 @@ function SortableCategoryBlock({ category, children, onOpenMenu, onAdd }) {
   );
 }
 
-export default function ChannelSidebar() {
+export default function ChannelSidebar({ mobileOpen = false, onMobileClose }) {
   const router = useRouter();
   const { serverId, channelId } = router.query;
   const { getChannelNotification, clearChannel } = useNotifications();
@@ -499,6 +499,7 @@ export default function ChannelSidebar() {
 
     if (channel.type === "text") {
       router.push(`/app/server/${serverId}/channel/${channel._id}`);
+            onMobileClose?.();
     }
   }
 
@@ -709,7 +710,24 @@ export default function ChannelSidebar() {
 
   return (
     <>
-      <aside className="flex w-[270px] flex-col border-r border-white/10 bg-[#0b0f1d]">
+      <aside
+        className={`${
+          mobileOpen
+            ? "fixed inset-y-0 left-0 z-[10020] flex w-[86vw] max-w-[320px] translate-x-0 flex-col border-r border-white/10 bg-[#0b0f1d] shadow-2xl transition-transform duration-200 md:static md:z-auto md:w-[270px] md:max-w-none md:shadow-none"
+            : "fixed inset-y-0 left-0 z-[10020] flex w-[86vw] max-w-[320px] -translate-x-full flex-col border-r border-white/10 bg-[#0b0f1d] shadow-2xl transition-transform duration-200 md:static md:z-auto md:w-[270px] md:max-w-none md:translate-x-0 md:shadow-none"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 p-4 md:hidden">
+          <p className="font-black text-white">Channels</p>
+          <button
+            type="button"
+            onClick={onMobileClose}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-sm font-bold text-slate-300"
+          >
+            Close
+          </button>
+        </div>
+
         <div className="relative">
           <button
             onClick={() => setServerMenuOpen((prev) => !prev)}

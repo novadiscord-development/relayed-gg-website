@@ -702,7 +702,7 @@ export default function ChatArea() {
         <form
           onSubmit={sendMessage}
           onMouseDown={(e) => e.stopPropagation()}
-          className="relative shrink-0 border-t border-white/10 bg-[#080b18] p-4"
+          className="relative shrink-0 border-t border-white/10 bg-[#080b18] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 md:p-4"
         >
           {showMentions && (
             <MentionPicker

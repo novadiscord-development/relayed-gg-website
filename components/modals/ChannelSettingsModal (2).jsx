@@ -311,11 +311,36 @@ export default function ChannelSettingsModal({ channel, serverId, onClose, onUpd
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto p-6 md:p-10">
+      <main className="min-w-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 md:p-10">
         <div className="mx-auto max-w-5xl">
-          <div className="mb-8 flex items-center justify-between gap-4">
+          <div className="mb-4 grid grid-cols-2 gap-2 md:hidden">
+            <button
+              type="button"
+              onClick={() => setActiveTab("overview")}
+              className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
+                activeTab === "overview"
+                  ? "bg-violet-600 text-white"
+                  : "bg-white/[0.04] text-slate-400"
+              }`}
+            >
+              Overview
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("permissions")}
+              className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
+                activeTab === "permissions"
+                  ? "bg-violet-600 text-white"
+                  : "bg-white/[0.04] text-slate-400"
+              }`}
+            >
+              Permissions
+            </button>
+          </div>
+          <div className="mb-6 flex items-start justify-between gap-4 md:mb-8">
             <div>
-              <h2 className="text-2xl font-black text-white">
+              <h2 className="text-xl font-black text-white md:text-2xl">
                 {activeTab === "overview" ? "Channel Overview" : "Channel Permissions"}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
@@ -350,7 +375,7 @@ export default function ChannelSettingsModal({ channel, serverId, onClose, onUpd
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 maxLength={40}
-                className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full rounded bg-[#1e1f22] px-3 py-2.5 text-[16px] text-white outline-none focus:ring-2 focus:ring-violet-500 sm:text-sm"
               />
 
               <div className="mt-6 flex justify-end">
@@ -368,7 +393,7 @@ export default function ChannelSettingsModal({ channel, serverId, onClose, onUpd
           )}
 
           {activeTab === "permissions" && (
-            <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+            <div className="grid gap-4 lg:grid-cols-[280px_1fr] lg:gap-6">
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <h3 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">
                   Roles / Members

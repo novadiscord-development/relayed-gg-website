@@ -407,7 +407,7 @@ export default function UserProfilePopout({
         <button
           type="button"
           disabled
-          className="flex h-10 items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 text-sm font-black text-red-300"
+          className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 text-sm font-black text-red-300"
         >
           <Ban size={16} />
           BLOCKED
@@ -420,7 +420,7 @@ export default function UserProfilePopout({
         <button
           type="button"
           disabled
-          className="flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-400"
+          className="flex min-h-[42px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-400"
         >
           UNAVAILABLE
         </button>
@@ -433,7 +433,7 @@ export default function UserProfilePopout({
           type="button"
           onClick={removeFriend}
           disabled={friendLoading}
-          className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-black text-slate-200 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-60"
+          className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-black text-slate-200 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-60"
         >
           <UserCheck size={16} />
           FRIENDS
@@ -446,7 +446,7 @@ export default function UserProfilePopout({
         <button
           type="button"
           disabled
-          className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-400"
+          className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-400"
         >
           <Check size={16} />
           SENT
@@ -460,7 +460,7 @@ export default function UserProfilePopout({
           type="button"
           onClick={acceptFriendRequest}
           disabled={friendLoading}
-          className="flex h-10 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 text-sm font-black text-white transition hover:bg-green-500 disabled:opacity-60"
+          className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-green-600 px-4 text-sm font-black text-white transition hover:bg-green-500 disabled:opacity-60"
         >
           <UserCheck size={16} />
           ACCEPT
@@ -473,7 +473,7 @@ export default function UserProfilePopout({
         type="button"
         onClick={sendFriendRequest}
         disabled={friendLoading}
-        className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-black text-slate-200 transition hover:bg-white/[0.1] hover:text-white disabled:opacity-60"
+        className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-black text-slate-200 transition hover:bg-white/[0.1] hover:text-white disabled:opacity-60"
       >
         <UserPlus size={16} />
         ADD
@@ -490,13 +490,13 @@ export default function UserProfilePopout({
   return (
     <div
       onMouseDown={onClose}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 px-0 backdrop-blur-sm animate-in fade-in duration-200 sm:items-center sm:px-4"
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[440px] overflow-visible rounded-[28px] border border-white/10 bg-[#0f172a] text-white shadow-[0_25px_90px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300"
+        className="relative max-h-[92dvh] w-full max-w-[440px] overflow-y-auto rounded-t-[28px] border border-white/10 bg-[#0f172a] pb-[env(safe-area-inset-bottom)] text-white shadow-[0_25px_90px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300 sm:rounded-[28px]"
       >
-<div className="relative h-36 overflow-visible rounded-t-[28px]">
+<div className="relative h-32 overflow-visible rounded-t-[28px] sm:h-36">
           <div className="absolute inset-0 overflow-hidden rounded-t-[28px] bg-gradient-to-br from-violet-700 via-fuchsia-600 to-cyan-500">
             {user.banner && (
               <Image
@@ -612,7 +612,7 @@ export default function UserProfilePopout({
                 type="button"
                 onClick={startDM}
                 disabled={isBlocked || blockedBy}
-                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <MessageCircle size={16} />
                 Message

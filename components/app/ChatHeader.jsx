@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { Hash, Bell, Pin, Users, Search, ExternalLink } from "lucide-react";
+import { Hash, Bell, Pin, Users, Search, ExternalLink, X } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 
 export default function ChatHeader() {
@@ -12,6 +12,7 @@ export default function ChatHeader() {
 
   const [channel, setChannel] = useState(null);
   const [search, setSearch] = useState("");
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
@@ -137,6 +138,13 @@ export default function ChatHeader() {
     router.push("/app/notifications");
   }
 
+  function closeSearch() {
+    setMobileSearchOpen(false);
+    setSearch("");
+    setResults([]);
+    setMobileSearchOpen(false);
+  }
+
   function jumpToMessage(message) {
     window.dispatchEvent(
       new CustomEvent("chat:jump-to-message", {
@@ -164,11 +172,11 @@ export default function ChatHeader() {
   }
 
   return (
-    <header className="relative z-[100] flex h-14 items-center justify-between border-b border-white/10 bg-[#080b18] px-5">
+    <header className="relative z-[100] hidden h-14 items-center justify-between border-b border-white/10 bg-[#080b18] px-3 md:flex md:px-5">
       <div className="flex min-w-0 items-center gap-3">
-        <Hash size={24} className="text-slate-400" />
+        <Hash size={22} className="shrink-0 text-slate-400" />
 
-        <h1 className="truncate font-black">{channel?.name || "loading"}</h1>
+        <h1 className="truncate text-sm font-black sm:text-base">{channel?.name || "loading"}</h1>
 
         <div className="hidden h-6 w-px bg-white/10 md:block" />
 
@@ -177,7 +185,7 @@ export default function ChatHeader() {
         </p>
       </div>
 
-      <div className="flex h-full items-center gap-4 text-slate-400">
+      <div className="flex h-full shrink-0 items-center gap-2 text-slate-400 sm:gap-4">
         <div className="relative flex items-center">
           <button
             type="button"
@@ -194,7 +202,7 @@ export default function ChatHeader() {
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 top-8 z-[100] w-96 overflow-hidden rounded-2xl border border-[#2b2d31] bg-[#1e1f22] shadow-[0_20px_60px_rgba(0,0,0,0.85)]">
+            <div className="fixed left-3 right-3 top-28 z-[100] overflow-hidden rounded-2xl border border-[#2b2d31] bg-[#1e1f22] shadow-[0_20px_60px_rgba(0,0,0,0.85)] sm:absolute sm:left-auto sm:right-0 sm:top-8 sm:w-96">
               <div className="flex items-center justify-between border-b border-[#2b2d31] bg-[#111214] px-4 py-3">
                 <div>
                   <h2 className="text-sm font-black text-white">
@@ -291,6 +299,15 @@ export default function ChatHeader() {
           <Users size={20} />
         </button>
 
+        <button
+          type="button"
+          onClick={() => setMobileSearchOpen((prev) => !prev)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-black/20 transition hover:text-white lg:hidden"
+          title="Search messages"
+        >
+          {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
+        </button>
+
         <div className="relative hidden items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5 lg:flex">
           <input
             value={search}
@@ -340,6 +357,66 @@ export default function ChatHeader() {
           )}
         </div>
       </div>
+
+      {mobileSearchOpen && (
+        <div className="absolute left-3 right-3 top-[58px] z-[120] rounded-2xl border border-white/10 bg-[#111827] p-3 shadow-2xl lg:hidden">
+          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search messages"
+              autoFocus
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+            />
+
+            <button
+              type="button"
+              onClick={closeSearch}
+              className="text-slate-500 hover:text-white"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {(results.length > 0 || searching || search.trim().length >= 2) && (
+            <div className="mt-3 max-h-[50vh] overflow-y-auto rounded-xl border border-white/10 bg-[#0b0f1d]">
+              {searching ? (
+                <p className="p-4 text-sm text-slate-500">Searching...</p>
+              ) : results.length === 0 ? (
+                <p className="p-4 text-sm text-slate-500">No messages found.</p>
+              ) : (
+                results.map((message) => (
+                  <button
+                    key={message._id}
+                    type="button"
+                    onClick={() => jumpToMessage(message)}
+                    className="block w-full border-b border-white/5 p-3 text-left transition last:border-b-0 hover:bg-white/[0.05]"
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <p className="truncate text-sm font-bold text-white">
+                        {message.authorId?.username || "Unknown User"}
+                      </p>
+
+                      <span className="shrink-0 text-[11px] text-slate-600">
+                        {new Date(message.createdAt).toLocaleString([], {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+
+                    <p className="line-clamp-2 text-xs leading-5 text-slate-400">
+                      {message.content}
+                    </p>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 }

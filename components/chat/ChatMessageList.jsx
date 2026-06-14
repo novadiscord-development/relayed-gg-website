@@ -32,12 +32,22 @@ export default function ChatMessageList({
   return (
     <div
       ref={messagesContainerRef}
-      className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 md:px-6 md:py-6"
     >
       <WelcomeBanner channel={channel} />
 
       {loading ? (
-        <p className="text-sm text-slate-500">Loading messages...</p>
+        <div className="space-y-4 py-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="flex animate-pulse gap-3">
+              <div className="h-10 w-10 shrink-0 rounded-full bg-white/[0.06]" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-3 w-32 rounded bg-white/[0.06]" />
+                <div className="h-3 w-4/5 rounded bg-white/[0.04]" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : messages.length === 0 ? (
         <p className="text-sm text-slate-500">
           No messages yet. Start the conversation.
@@ -83,7 +93,7 @@ export default function ChatMessageList({
             />
           ))}
 
-          <div ref={bottomRef} />
+          <div ref={bottomRef} className="h-2" />
         </div>
       )}
     </div>

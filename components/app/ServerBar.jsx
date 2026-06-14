@@ -7,7 +7,7 @@ import { useNotifications } from "@/context/NotificationContext";
 import { getPusherClient } from "@/lib/pusher-client";
 import { useSession } from "next-auth/react";
 
-export default function ServerBar() {
+export default function ServerBar({ mobile = false, onNavigate }) {
   const router = useRouter();
   const { data: session } = useSession();
   const { getServerNotification } = useNotifications();
@@ -128,16 +128,28 @@ export default function ServerBar() {
       .toUpperCase();
   }
 
+  function goTo(path) {
+    router.push(path);
+    onNavigate?.();
+  }
+
   function handleServerCreated(data) {
     setServers((prev) => [...prev, data.server]);
     router.push(`/app/server/${data.server._id}`);
+    onNavigate?.();
   }
 
   return (
     <>
-      <aside className="flex w-[76px] flex-col items-center gap-4 border-r border-white/10 bg-[#070a15] py-4">
+      <aside
+        className={`${
+          mobile
+            ? "flex h-full w-full flex-row flex-wrap content-start items-start gap-3 overflow-y-auto bg-transparent p-4"
+            : "hidden w-[76px] flex-col items-center gap-4 border-r border-white/10 bg-[#070a15] py-4 md:flex"
+        }`}
+      >
         <button
-          onClick={() => router.push("/app/me")}
+          onClick={() => goTo("/app/me")}
           title="Home"
           className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border transition hover:rounded-xl ${
             isHomeActive
@@ -145,7 +157,7 @@ export default function ServerBar() {
               : "border-white/10 bg-white/[0.04] hover:border-violet-400/50 hover:bg-violet-600/20"
           }`}
         >
-          {isHomeActive && (
+          {isHomeActive && !mobile && (
             <span className="absolute -left-3 h-8 w-1 rounded-r-full bg-violet-400" />
           )}
 
@@ -162,7 +174,7 @@ export default function ServerBar() {
           )}
         </button>
 
-        <div className="h-px w-10 bg-white/10" />
+        {!mobile && <div className="h-px w-10 bg-white/10" />}
 
         {servers.map((server) => {
           const isActive = activeServerId === server._id;
@@ -171,7 +183,7 @@ export default function ServerBar() {
           return (
             <button
               key={server._id}
-              onClick={() => router.push(`/app/server/${server._id}`)}
+              onClick={() => goTo(`/app/server/${server._id}`)}
               title={server.name}
               className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border transition hover:rounded-xl ${
                 isActive
@@ -179,7 +191,7 @@ export default function ServerBar() {
                   : "border-white/10 bg-white/[0.04] hover:border-violet-400/50 hover:bg-violet-600/20"
               }`}
             >
-              {isActive && (
+              {isActive && !mobile && (
                 <span className="absolute -left-3 h-8 w-1 rounded-r-full bg-violet-400" />
               )}
 
@@ -219,7 +231,7 @@ export default function ServerBar() {
         </button>
 
         <button
-          onClick={() => router.push("/app/explore")}
+          onClick={() => goTo("/app/explore")}
           title="Explore Servers"
           className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border transition hover:rounded-xl ${
             isExploreActive
@@ -227,7 +239,7 @@ export default function ServerBar() {
               : "border-white/10 bg-white/[0.04] text-violet-300 hover:bg-violet-500/10"
           }`}
         >
-          {isExploreActive && (
+          {isExploreActive && !mobile && (
             <span className="absolute -left-3 h-8 w-1 rounded-r-full bg-violet-400" />
           )}
           <Compass size={22} />

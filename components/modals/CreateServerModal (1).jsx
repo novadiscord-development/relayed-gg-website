@@ -99,8 +99,8 @@ export default function CreateServerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#0b0f1d] p-6 shadow-2xl">
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-4 backdrop-blur-sm sm:items-center sm:px-4 sm:py-4">
+      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/10 bg-[#0b0f1d] p-5 shadow-2xl sm:rounded-3xl sm:p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-black text-white">
@@ -114,7 +114,7 @@ export default function CreateServerModal({
           <button
             type="button"
             onClick={closeModal}
-            className="rounded-lg p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 text-slate-400 transition hover:bg-white/10 hover:text-white"
           >
             <X size={20} />
           </button>
@@ -131,7 +131,7 @@ export default function CreateServerModal({
               onChange={(e) => setName(e.target.value)}
               maxLength={80}
               placeholder="My Awesome Server"
-              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-violet-500"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[16px] text-white outline-none placeholder:text-slate-600 focus:border-violet-500 sm:text-sm"
             />
 
             <p className="mt-1 text-right text-xs text-slate-600">
@@ -150,7 +150,7 @@ export default function CreateServerModal({
               rows={3}
               maxLength={500}
               placeholder="What is this server about?"
-              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-violet-500"
+              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[16px] text-white outline-none placeholder:text-slate-600 focus:border-violet-500 sm:text-sm"
             />
 
             <p className="mt-1 text-right text-xs text-slate-600">
@@ -257,7 +257,7 @@ export default function CreateServerModal({
                         ? "Maximum 5 tags"
                         : "gaming, friends, coding..."
                     }
-                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white outline-none placeholder:text-slate-600 disabled:opacity-50 focus:border-violet-500"
+                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[16px] text-white outline-none placeholder:text-slate-600 disabled:opacity-50 focus:border-violet-500 sm:text-sm"
                   />
 
                   <button
@@ -303,7 +303,7 @@ export default function CreateServerModal({
             type="button"
             onClick={handleCreate}
             disabled={loading || !name.trim()}
-            className="w-full rounded-xl bg-violet-600 py-3 font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-[46px] w-full rounded-xl bg-violet-600 py-3 font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "Creating..." : "Create Server"}
           </button>
