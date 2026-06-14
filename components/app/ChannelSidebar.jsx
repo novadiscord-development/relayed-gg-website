@@ -37,22 +37,6 @@ import CreateChannelModal from "@/components/modals/CreateChannelModal";
 import ChannelSettingsModal from "@/components/modals/ChannelSettingsModal";
 import { getPusherClient } from "@/lib/pusher-client";
 
-useEffect(() => {
-  if (!serverId) return;
-
-  const pusherClient = getPusherClient();
-  const channel = pusherClient.subscribe(`server-${serverId}`);
-
-  channel.bind("channel-permissions:updated", () => {
-    loadSidebarData();
-  });
-
-  return () => {
-    channel.unbind("channel-permissions:updated");
-    pusherClient.unsubscribe(`server-${serverId}`);
-  };
-}, [serverId]);
-
 function normalizeId(value) {
   if (!value) return null;
   return value.toString();
@@ -258,6 +242,30 @@ export default function ChannelSidebar() {
   useEffect(() => {
     if (!serverId) return;
     loadSidebarData();
+  }, [serverId]);
+
+  useEffect(() => {
+    if (!serverId) return;
+
+    const pusherClient = getPusherClient();
+    const pusherChannel = pusherClient.subscribe(`server-${serverId}`);
+
+    function handleChannelPermissionsUpdated() {
+      loadSidebarData();
+    }
+
+    pusherChannel.bind(
+      "channel-permissions:updated",
+      handleChannelPermissionsUpdated
+    );
+
+    return () => {
+      pusherChannel.unbind(
+        "channel-permissions:updated",
+        handleChannelPermissionsUpdated
+      );
+      pusherClient.unsubscribe(`server-${serverId}`);
+    };
   }, [serverId]);
 
   useEffect(() => {
