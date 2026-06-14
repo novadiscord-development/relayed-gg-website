@@ -714,7 +714,7 @@ export default function UserProfilePopout({
             <div className="flex flex-wrap gap-2">
               {user.isStaff && (
                 <span className="rounded-lg bg-violet-500/15 px-2.5 py-1 text-xs font-bold text-violet-300">
-                  ◆ Staff
+                  ◆ RELAYED
                 </span>
               )}
 

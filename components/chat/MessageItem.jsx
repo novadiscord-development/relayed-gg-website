@@ -187,7 +187,7 @@ export default function MessageItem({
 
             {author?.isStaff && (
               <span className="rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-black">
-                STAFF
+                RELAYED
               </span>
             )}
 
