@@ -118,7 +118,7 @@ export default function ExploreServersPage() {
       window.dispatchEvent(new Event("server:joined"));
 
       if (data.channel?._id) {
-        router.push(`/app/server/${server._id}/channel/${data.channel._id}`);
+        router.push(`/app/server/${server._id}/${data.channel._id}`);
       } else {
         router.push(`/app/server/${server._id}`);
       }

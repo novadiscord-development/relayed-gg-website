@@ -498,7 +498,7 @@ export default function ChannelSidebar({ mobileOpen = false, onMobileClose }) {
     window.dispatchEvent(new Event("channel:created"));
 
     if (channel.type === "text") {
-      router.push(`/app/server/${serverId}/channel/${channel._id}`);
+      router.push(`/app/server/${serverId}/${channel._id}`);
             onMobileClose?.();
     }
   }
@@ -673,7 +673,7 @@ export default function ChannelSidebar({ mobileOpen = false, onMobileClose }) {
         onClick={() => {
           if (channel.type === "text") {
             clearChannel(serverId, channel._id);
-            router.push(`/app/server/${serverId}/channel/${channel._id}`);
+            router.push(`/app/server/${serverId}/${channel._id}`);
           }
         }}
       />

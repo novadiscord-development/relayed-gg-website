@@ -142,7 +142,7 @@ export default function ServerChannelPage() {
         const firstTextChannel = data.firstTextChannel;
 
         if (firstTextChannel?._id) {
-          router.replace(`/app/server/${serverId}/channel/${firstTextChannel._id}`);
+          router.replace(`/app/server/${serverId}/${firstTextChannel._id}`);
           return;
         }
 
@@ -161,16 +161,6 @@ export default function ServerChannelPage() {
     setServerDrawerOpen(false);
     setChannelDrawerOpen(false);
     setMemberDrawerOpen(false);
-  }
-
-  if (checkingAccess) {
-    return (
-      <RelayedLoadingScreen
-        title="Loading channel..."
-        subtitle="Checking channel access."
-        mode="channel"
-      />
-    );
   }
 
   return (

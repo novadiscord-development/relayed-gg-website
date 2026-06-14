@@ -147,23 +147,13 @@ export default function ServerRedirectPage() {
         return;
       }
 
-      router.replace(`/app/server/${serverId}/channel/${firstChannel._id}`);
+      router.replace(`/app/server/${serverId}/${firstChannel._id}`);
     } catch (error) {
       console.error("SERVER_REDIRECT_ERROR", error);
       setHasNoChannels(true);
     } finally {
       setLoading(false);
     }
-  }
-
-  if (loading && !hasNoChannels) {
-    return (
-      <RelayedLoadingScreen
-        title="Loading server..."
-        subtitle="Checking access and finding your first channel."
-        mode="server"
-      />
-    );
   }
 
   return (
