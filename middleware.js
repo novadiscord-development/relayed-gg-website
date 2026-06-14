@@ -1,21 +1,23 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
-const AUTH_PAGES = ["/login", "/register"];
-const PUBLIC_PAGES = ["/", "/invite"];
-
-function isAuthPage(pathname) {
-  return AUTH_PAGES.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+function getPathname(req) {
+  return req?.nextUrl?.pathname || new URL(req.url).pathname;
 }
 
-function isPublicPage(pathname) {
-  return PUBLIC_PAGES.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+function getSearch(req) {
+  return req?.nextUrl?.search || new URL(req.url).search;
+}
+
+function isAuthPage(pathname) {
+  return pathname === "/login" || pathname === "/register";
 }
 
 export default withAuth(
   function middleware(req) {
-    const { pathname } = req.nextUrl;
-    const token = req.nextauth.token;
+    const pathname = getPathname(req);
+    const search = getSearch(req);
+    const token = req.nextauth?.token;
 
     if (isAuthPage(pathname) && token) {
       return NextResponse.redirect(new URL("/app", req.url));
@@ -23,7 +25,7 @@ export default withAuth(
 
     if (pathname.startsWith("/app") && !token) {
       const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname + req.nextUrl.search);
+      loginUrl.searchParams.set("callbackUrl", pathname + search);
       return NextResponse.redirect(loginUrl);
     }
 
@@ -32,11 +34,9 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        const { pathname } = req.nextUrl;
+        const pathname = getPathname(req);
 
-        if (isPublicPage(pathname)) return true;
         if (isAuthPage(pathname)) return true;
-        if (pathname.startsWith("/api/auth")) return true;
         if (pathname.startsWith("/app")) return Boolean(token);
 
         return true;
@@ -46,10 +46,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: [
-    "/app/:path*",
-    "/login",
-    "/register",
-    "/invite/:path*",
-  ],
+  matcher: ["/app/:path*", "/login", "/register"],
 };
