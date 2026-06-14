@@ -84,7 +84,7 @@ export default async function handler(req, res) {
     await ensureEveryoneRole(server._id);
 
     await Member.create({
-      serverId: server.serverId,
+      serverId: server._id,
       userId: session.user.id,
       role: "owner",
       roles: [],
