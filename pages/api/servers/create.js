@@ -8,6 +8,24 @@ import Member from "@/models/Member";
 import Channel from "@/models/Channel";
 import ensureEveryoneRole from "@/lib/ensureEveryoneRole";
 
+function cleanTags(tags = []) {
+  if (!Array.isArray(tags)) return [];
+
+  return [
+    ...new Set(
+      tags
+        .map((tag) =>
+          String(tag || "")
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9-_ ]/g, "")
+            .slice(0, 24)
+        )
+        .filter(Boolean)
+    ),
+  ].slice(0, 5);
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -18,7 +36,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({
         message: "Unauthorized",
       });
@@ -26,17 +44,39 @@ export default async function handler(req, res) {
 
     await connectDB();
 
-    const { name } = req.body;
+    const {
+      name,
+      visibility = "private",
+      description = "",
+      tags = [],
+    } = req.body;
 
-    if (!name || name.trim().length < 2) {
+    const cleanName = String(name || "").trim();
+
+    if (cleanName.length < 2) {
       return res.status(400).json({
         message: "Server name must be at least 2 characters",
       });
     }
 
+    if (cleanName.length > 80) {
+      return res.status(400).json({
+        message: "Server name must be 80 characters or less",
+      });
+    }
+
+    const cleanDescription = String(description || "").trim().slice(0, 500);
+    const isPublic = visibility === "public";
+
     const server = await Server.create({
-      name: name.trim(),
+      name: cleanName,
       ownerId: session.user.id,
+      description: cleanDescription,
+      visibility: isPublic ? "public" : "private",
+      publicEnabled: isPublic,
+      tags: cleanTags(tags),
+      memberCount: 1,
+      discoverableAt: isPublic ? new Date() : null,
     });
 
     await ensureEveryoneRole(server._id);

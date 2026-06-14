@@ -4,6 +4,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "@/lib/mongodb";
 import Server from "@/models/Server";
 import Member from "@/models/Member";
+import { getMemberPermissions } from "@/lib/permissions";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({
         message: "Unauthorized",
       });
@@ -34,6 +35,9 @@ export default async function handler(req, res) {
     const membership = await Member.findOne({
       serverId,
       userId: session.user.id,
+    }).populate({
+      path: "roles",
+      match: { isEveryone: { $ne: true } },
     });
 
     if (!membership) {
@@ -50,22 +54,34 @@ export default async function handler(req, res) {
       });
     }
 
+    const permissions = await getMemberPermissions(membership);
+
     return res.status(200).json({
       server: {
         _id: server._id,
         name: server.name,
         icon: server.icon,
+        banner: server.banner,
+        description: server.description,
         ownerId: server.ownerId,
+        visibility: server.visibility || "private",
+        publicEnabled: Boolean(server.publicEnabled),
+        tags: server.tags || [],
+        memberCount: server.memberCount || 0,
+        discoverableAt: server.discoverableAt || null,
         createdAt: server.createdAt,
+        updatedAt: server.updatedAt,
       },
 
       membership: {
         _id: membership._id,
         role: membership.role,
+        roles: membership.roles || [],
+        permissions,
         isOwner: membership.role === "owner",
-        canManageServer: ["owner", "admin", "moderator"].includes(
-          membership.role
-        ),
+        canManageServer: Boolean(permissions.manageServer),
+        canManageChannels: Boolean(permissions.manageChannels),
+        canManageRoles: Boolean(permissions.manageRoles),
       },
     });
   } catch (error) {

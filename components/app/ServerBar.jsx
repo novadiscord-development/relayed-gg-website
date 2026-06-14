@@ -17,11 +17,22 @@ export default function ServerBar() {
   const [dmUnread, setDmUnread] = useState(false);
 
   const activeServerId = router.query.serverId;
-  const isHomeActive = !activeServerId;
+  const isHomeActive = !activeServerId && !router.pathname.startsWith("/app/explore");
+  const isExploreActive = router.pathname === "/app/explore";
 
   useEffect(() => {
     loadServers();
     loadDMUnread();
+
+    function openCreateServer() {
+      setShowModal(true);
+    }
+
+    window.addEventListener("open:create-server", openCreateServer);
+
+    return () => {
+      window.removeEventListener("open:create-server", openCreateServer);
+    };
   }, []);
 
   useEffect(() => {
@@ -65,11 +76,13 @@ export default function ServerBar() {
 
     window.addEventListener("server:updated", refreshServers);
     window.addEventListener("server:deleted", refreshServers);
+    window.addEventListener("server:joined", refreshServers);
     window.addEventListener("focus", refreshAll);
 
     return () => {
       window.removeEventListener("server:updated", refreshServers);
       window.removeEventListener("server:deleted", refreshServers);
+      window.removeEventListener("server:joined", refreshServers);
       window.removeEventListener("focus", refreshAll);
     };
   }, []);
@@ -206,9 +219,17 @@ export default function ServerBar() {
         </button>
 
         <button
+          onClick={() => router.push("/app/explore")}
           title="Explore Servers"
-          className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-violet-300 transition hover:rounded-xl hover:bg-violet-500/10"
+          className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border transition hover:rounded-xl ${
+            isExploreActive
+              ? "border-violet-400 bg-violet-600/30 text-violet-200 shadow-[0_0_25px_rgba(124,58,237,0.5)]"
+              : "border-white/10 bg-white/[0.04] text-violet-300 hover:bg-violet-500/10"
+          }`}
         >
+          {isExploreActive && (
+            <span className="absolute -left-3 h-8 w-1 rounded-r-full bg-violet-400" />
+          )}
           <Compass size={22} />
         </button>
       </aside>

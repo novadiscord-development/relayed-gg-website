@@ -25,6 +25,9 @@ import {
   RefreshCw,
   ArrowUp,
   ArrowDown,
+  Globe2,
+  Lock,
+  Tags,
 } from "lucide-react";
 
 const tabs = [
@@ -48,6 +51,11 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [visibility, setVisibility] = useState(server?.visibility || "private");
+  const [publicEnabled, setPublicEnabled] = useState(Boolean(server?.publicEnabled));
+  const [serverTags, setServerTags] = useState(server?.tags || []);
+  const [tagInput, setTagInput] = useState("");
 
   const [members, setMembers] = useState([]);
   const [currentMember, setCurrentMember] = useState(null);
@@ -129,6 +137,10 @@ export default function EditServerModal({ server, onClose, onUpdated }) {
     setIcon(server?.icon || "");
     setBanner(server?.banner || "");
     setDescription(server?.description || "");
+    setVisibility(server?.visibility || "private");
+    setPublicEnabled(Boolean(server?.publicEnabled));
+    setServerTags(Array.isArray(server?.tags) ? server.tags : []);
+    setTagInput("");
   }, [server]);
 
   useEffect(() => {
@@ -547,6 +559,31 @@ async function assignRole(member, role, action) {
   setOpenRolePicker(null);
 }
 
+function cleanTag(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_ ]/g, "")
+    .slice(0, 24);
+}
+
+function addServerTag(value = tagInput) {
+  const clean = cleanTag(value);
+
+  if (!clean) return;
+
+  setServerTags((prev) => {
+    if (prev.includes(clean)) return prev;
+    return [...prev, clean].slice(0, 5);
+  });
+
+  setTagInput("");
+}
+
+function removeServerTag(tag) {
+  setServerTags((prev) => prev.filter((item) => item !== tag));
+}
+
   async function uploadImage(file, type) {
     if (!file) return;
 
@@ -590,23 +627,62 @@ async function assignRole(member, role, action) {
 
     setSaving(true);
 
-    const res = await fetch("/api/servers/update", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        serverId: server._id,
-        name,
-        icon,
-        banner,
-        description,
-      }),
-    });
+    try {
+      const overviewRes = await fetch("/api/servers/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serverId: server._id,
+          name,
+          icon,
+          banner,
+          description,
+        }),
+      });
 
-    const data = await res.json();
-    setSaving(false);
+      const overviewData = await overviewRes.json();
 
-    if (!res.ok) return;
-    onUpdated(data.server);
+      if (!overviewRes.ok) {
+        await showAlert(
+          overviewData.message || "Failed to save server",
+          "Server Error"
+        );
+        return;
+      }
+
+      const publicRes = await fetch("/api/servers/update-public-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serverId: server._id,
+          visibility,
+          publicEnabled: visibility === "public" && publicEnabled,
+          tags: serverTags,
+        }),
+      });
+
+      const publicData = await publicRes.json();
+
+      if (!publicRes.ok) {
+        await showAlert(
+          publicData.message || "Failed to save public server settings",
+          "Public Server Error"
+        );
+        return;
+      }
+
+      onUpdated({
+        ...overviewData.server,
+        visibility: publicData.server?.visibility || visibility,
+        publicEnabled: Boolean(publicData.server?.publicEnabled),
+        tags: publicData.server?.tags || serverTags,
+        discoverableAt: publicData.server?.discoverableAt || null,
+      });
+
+      window.dispatchEvent(new Event("server:updated"));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function updateMemberRole(member, role) {
@@ -1030,6 +1106,160 @@ async function assignRole(member, role, action) {
             <div className="mt-2 text-right text-xs text-slate-600">
               {description.length}/500
             </div>
+          </div>
+
+          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-slate-300">
+                  <Globe2 size={16} className="text-violet-300" />
+                  Public Server
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Control whether this server appears in Explore.
+                </p>
+              </div>
+
+              <span
+                className={`rounded-lg px-3 py-1.5 text-xs font-black uppercase ${
+                  visibility === "public" && publicEnabled
+                    ? "bg-green-500/10 text-green-300"
+                    : "bg-slate-500/10 text-slate-400"
+                }`}
+              >
+                {visibility === "public" && publicEnabled ? "Discoverable" : "Private"}
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setVisibility("private");
+                  setPublicEnabled(false);
+                }}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  visibility === "private"
+                    ? "border-violet-400/40 bg-violet-500/10"
+                    : "border-white/10 bg-black/20 hover:bg-white/[0.04]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Lock size={17} className="text-slate-300" />
+                  <p className="font-black text-white">Private</p>
+                </div>
+
+                <p className="mt-2 text-sm leading-5 text-slate-500">
+                  Members can only join with an invite link.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setVisibility("public");
+                  setPublicEnabled(true);
+                }}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  visibility === "public"
+                    ? "border-violet-400/40 bg-violet-500/10"
+                    : "border-white/10 bg-black/20 hover:bg-white/[0.04]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Globe2 size={17} className="text-violet-300" />
+                  <p className="font-black text-white">Public</p>
+                </div>
+
+                <p className="mt-2 text-sm leading-5 text-slate-500">
+                  Server can appear in Explore and users can join directly.
+                </p>
+              </button>
+            </div>
+
+            {visibility === "public" && (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-bold text-white">Discoverable in Explore</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Turn this off to keep public joining disabled.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setPublicEnabled((prev) => !prev)}
+                    className={`relative h-6 w-11 rounded-full transition ${
+                      publicEnabled ? "bg-violet-600" : "bg-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
+                        publicEnabled ? "left-6" : "left-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="mt-5">
+                  <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                    <Tags size={14} />
+                    Explore Tags
+                  </label>
+
+                  <div className="flex gap-2">
+                    <input
+                      value={tagInput}
+                      onChange={(event) => setTagInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addServerTag();
+                        }
+                      }}
+                      disabled={serverTags.length >= 5}
+                      placeholder={
+                        serverTags.length >= 5
+                          ? "Maximum 5 tags"
+                          : "gaming, community, music..."
+                      }
+                      className="min-w-0 flex-1 rounded bg-[#1e1f22] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50 focus:ring-2 focus:ring-violet-500"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => addServerTag()}
+                      disabled={!tagInput.trim() || serverTags.length >= 5}
+                      className="rounded bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {serverTags.length === 0 ? (
+                      <p className="text-xs text-slate-600">
+                        Add tags to help people find your server.
+                      </p>
+                    ) : (
+                      serverTags.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => removeServerTag(tag)}
+                          className="rounded-full bg-violet-500/10 px-3 py-1.5 text-xs font-bold text-violet-300 transition hover:bg-red-500/10 hover:text-red-300"
+                          title="Remove tag"
+                        >
+                          {tag} ×
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {isOwner && (
