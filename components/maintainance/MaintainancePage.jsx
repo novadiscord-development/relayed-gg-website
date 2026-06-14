@@ -1,80 +1,74 @@
 import { useEffect, useState } from "react";
 
 const messages = [
-  "Tip: Try refreshing in a few minutes.",
-  "Need help? Contact support at support@example.com.",
-  "We are improving performance behind the scenes.",
   "Thanks for your patience — we will be back soon.",
+  "Need help? Contact support at support@example.com.",
+  "We are making things faster and smoother.",
+  "Tip: Try again in a few minutes.",
 ];
 
 export default function MaintenancePage() {
   const [messageIndex, setMessageIndex] = useState(0);
-  const [displayedText, setDisplayedText] = useState("");
+  const [text, setText] = useState("");
 
   useEffect(() => {
-    let charIndex = 0;
-    let timeout;
+    let i = 0;
+    let timer;
 
-    const type = () => {
-      const currentMessage = messages[messageIndex];
+    function type() {
+      const message = messages[messageIndex];
 
-      if (charIndex <= currentMessage.length) {
-        setDisplayedText(currentMessage.slice(0, charIndex));
-        charIndex++;
-        timeout = setTimeout(type, 45);
+      if (i <= message.length) {
+        setText(message.slice(0, i));
+        i++;
+        timer = setTimeout(type, 45);
       } else {
-        timeout = setTimeout(() => {
+        timer = setTimeout(() => {
+          setText("");
           setMessageIndex((prev) => (prev + 1) % messages.length);
-          setDisplayedText("");
-        }, 2200);
+        }, 2000);
       }
-    };
+    }
 
     type();
-
-    return () => clearTimeout(timeout);
+    return () => clearTimeout(timer);
   }, [messageIndex]);
 
   return (
-    <main className="maintenance-page">
-      <div className="blob blob-one" />
-      <div className="blob blob-two" />
-      <div className="blob blob-three" />
+    <main className="maintenancePage">
+      <div className="maintenanceBlob blobOne" />
+      <div className="maintenanceBlob blobTwo" />
 
-      <section className="maintenance-card">
-        <div className="status-pill">
-          <span className="pulse-dot" />
+      <section className="maintenanceCard">
+        <div className="maintenancePill">
+          <span className="maintenanceDot" />
           Maintenance in progress
         </div>
 
         <h1>We’ll be back shortly</h1>
 
-        <p className="subtitle">
+        <p>
           We’re upgrading things behind the scenes to make your experience
           faster, smoother, and more reliable.
         </p>
 
-        <div className="typewriter-box">
-          <span>{displayedText}</span>
-          <span className="cursor">|</span>
+        <div className="typewriter">
+          {text}
+          <span>|</span>
         </div>
 
-        <div className="progress-wrap">
-          <div className="progress-bar" />
-        </div>
-
-        <div className="mini-grid">
+        <div className="maintenanceStats">
           <div>
             <strong>Systems</strong>
-            <span>Optimising</span>
+            <small>Optimising</small>
           </div>
           <div>
             <strong>Status</strong>
-            <span>Almost there</span>
+            <small>Almost there</small>
           </div>
           <div>
             <strong>Support</strong>
-            <span>Available</span>
+            <small>Available</small>
           </div>
         </div>
       </section>
