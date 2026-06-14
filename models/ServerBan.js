@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const ServerBanSchema = new mongoose.Schema(
   {
     serverId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
       ref: "Server",
       required: true,
     },

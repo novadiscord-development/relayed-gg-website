@@ -84,7 +84,7 @@ export default async function handler(req, res) {
     await ensureEveryoneRole(server._id);
 
     await Member.create({
-      serverId: server._id,
+      serverId: server.serverId,
       userId: session.user.id,
       role: "owner",
       roles: [],
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
 
     const textCategory = await Channel.create({
       publicId: generateSnowflake(),
-      serverId: server._id,
+      serverId: server.serverId,
       name: "text-channels",
       type: "category",
       parentId: null,
@@ -101,7 +101,7 @@ export default async function handler(req, res) {
 
     const voiceCategory = await Channel.create({
       publicId: generateSnowflake(),
-      serverId: server._id,
+      serverId: server.serverId,
       name: "voice-channels",
       type: "category",
       parentId: null,
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
 
     const generalTextChannel = await Channel.create({
       publicId: generateSnowflake(),
-      serverId: server._id,
+      serverId: server.serverId,
       name: "general",
       type: "text",
       parentId: textCategory._id,
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
 
     const generalVoiceChannel = await Channel.create({
       publicId: generateSnowflake(),
-      serverId: server._id,
+      serverId: server.serverId,
       name: "General",
       type: "voice",
       parentId: voiceCategory._id,

@@ -36,7 +36,7 @@ const UserNotificationSchema = new mongoose.Schema(
     },
 
     serverId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
       ref: "Server",
       default: null,
     },

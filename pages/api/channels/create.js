@@ -1,6 +1,5 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
-import generateSnowflake from "@/lib/generateSnowflake";
 
 import connectDB from "@/lib/mongodb";
 import Member from "@/models/Member";
@@ -90,7 +89,6 @@ export default async function handler(req, res) {
     const channelCount = await Channel.countDocuments({ serverId });
 
     const channel = await Channel.create({
-      publicId: generateSnowflake(),
       serverId,
       name: cleanName,
       type,

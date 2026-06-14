@@ -33,16 +33,9 @@ const PermissionOverwriteSchema = new mongoose.Schema(
 const ChannelSchema = new mongoose.Schema(
   {
     serverId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
       ref: "Server",
       required: true,
-    },
-
-    
-    publicId: {
-      type: Number,
-      unique: true,
-      index: true,
     },
 
     name: {
