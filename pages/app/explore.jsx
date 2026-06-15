@@ -88,7 +88,7 @@ export default function ExploreServersPage() {
 
   async function joinServer(server) {
     if (server.joined) {
-      router.push(`/app/server/${server.publicId}`);
+      router.push(`/app/server/${server._id}`);
       return;
     }
 
@@ -120,7 +120,7 @@ export default function ExploreServersPage() {
       if (data.channel?._id) {
         router.push(`/app/server/${server._id}/${data.channel._id}`);
       } else {
-        router.push(`/app/server/${server.publicId}`);
+        router.push(`/app/server/${server._id}`);
       }
     } catch (error) {
       console.error("JOIN_PUBLIC_SERVER_ERROR", error);

@@ -70,7 +70,7 @@ export default function InvitePage() {
         return;
       }
 
-      router.push(`/app/server/${data.publicId}`);
+      router.push(`/app/server/${data._id}`);
     } finally {
       setJoining(false);
     }
