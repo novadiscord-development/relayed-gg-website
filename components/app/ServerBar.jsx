@@ -135,7 +135,7 @@ export default function ServerBar({ mobile = false, onNavigate }) {
 
   function handleServerCreated(data) {
     setServers((prev) => [...prev, data.server]);
-    router.push(`/app/server/${data.server.serverId}`);
+    router.push(`/app/server/${data.server.publicId}`);
     onNavigate?.();
   }
 
@@ -178,12 +178,12 @@ export default function ServerBar({ mobile = false, onNavigate }) {
 
         {servers.map((server) => {
           const isActive = activeServerId === server._id;
-          const notification = getServerNotification(server._id);
+          const notification = getServerNotification(server.publicId);
 
           return (
             <button
               key={server._id}
-              onClick={() => goTo(`/app/server/${server._id}`)}
+              onClick={() => goTo(`/app/server/${server.publicId}`)}
               title={server.name}
               className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border transition hover:rounded-xl ${
                 isActive
