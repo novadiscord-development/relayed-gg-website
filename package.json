@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Relayed desktop and web app",
   "author": "Relayed",
-  "private": true,
+  "private": false,
   "main": "desktop/main.js",
   "scripts": {
     "dev": "next dev",
