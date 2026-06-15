@@ -10,6 +10,17 @@
 !.yarn/releases
 !.yarn/versions
 
+dist/
+dist-*/
+win-unpacked/
+*.exe
+*.blockmap
+*.dmg
+*.AppImage
+*.nsis.7z
+node_modules/
+.next/cache/
+
 # testing
 /coverage
 
