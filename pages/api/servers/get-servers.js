@@ -24,14 +24,25 @@ export default async function handler(req, res) {
     await connectDB();
 
     const memberships = await Member.find({
-      userId: session.user.id,
-    }).select("serverId role");
+  userId: session.user.id,
+}).select("serverId role");
 
-    const serverIds = memberships.map((member) => member.serverId);
+const rawServerIds = memberships.map((member) => member.serverId?.toString());
 
-    const servers = await Server.find({
-      publicId: { $in: serverIds },
-    }).sort({ createdAt: 1 });
+const numericPublicIds = rawServerIds
+  .filter((id) => /^\d+$/.test(id))
+  .map((id) => Number(id));
+
+const mongoObjectIds = rawServerIds.filter((id) =>
+  /^[0-9a-fA-F]{24}$/.test(id)
+);
+
+const servers = await Server.find({
+  $or: [
+    { publicId: { $in: numericPublicIds } },
+    { _id: { $in: mongoObjectIds } },
+  ],
+}).sort({ createdAt: 1 });
 
     const serversWithMembership = servers.map((server) => {
       const membership = memberships.find(
