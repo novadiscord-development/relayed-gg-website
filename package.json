@@ -55,11 +55,8 @@
     },
     "files": [
       "desktop/**/*",
-      ".next/**/*",
-      "public/**/*",
       "build/**/*",
-      "package.json",
-      "next.config.*"
+      "package.json"
     ],
     "extraMetadata": {
       "main": "desktop/main.js"
