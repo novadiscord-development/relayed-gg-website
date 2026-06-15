@@ -88,7 +88,7 @@ export default function ExploreServersPage() {
 
   async function joinServer(server) {
     if (server.joined) {
-      router.push(`/app/server/${server.publicId}`);
+      router.push(`/app/server/${server._id}`);
       return;
     }
 
@@ -118,7 +118,11 @@ export default function ExploreServersPage() {
       window.dispatchEvent(new Event("server:joined"));
 
       if (data.channel?._id) {
-        router.push(`/app/server/${server.publicId}/${data.channel.publicId}`);
+
+        router.push(`/app/server/${server._id}/${data.channel.publicId}`);
+
+        router.push(`/app/server/${server._id}/channel/${data.channel._id}`);
+>>>>>>> parent of f417637 (Updated Channel Routing)
       } else {
         router.push(`/app/server/${server.publicId}`);
       }
