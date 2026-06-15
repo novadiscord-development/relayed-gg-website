@@ -113,7 +113,7 @@ export default async function handler(req, res) {
       serverId: server.publicId,
       name: "general",
       type: "text",
-      parentId: textCategory._id,
+      parentId: textCategory.publicId,
       position: 2,
     });
 
@@ -122,7 +122,7 @@ export default async function handler(req, res) {
       serverId: server.publicId,
       name: "General",
       type: "voice",
-      parentId: voiceCategory._id,
+      parentId: voiceCategory.publicId,
       position: 3,
     });
 
