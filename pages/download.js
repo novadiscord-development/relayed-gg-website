@@ -34,7 +34,7 @@ export default function DownloadPage() {
 
             <div className="mt-8 flex flex-wrap gap-4">
               <a
-                href="/downloads/Relayed-Setup-0.1.0.exe"
+                href="/downloads/Relayed-Setup.exe"
                 download
                 className="rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-6 py-3 font-bold shadow-[0_0_25px_rgba(124,58,237,0.35)] hover:from-violet-500 hover:to-purple-500"
               >
