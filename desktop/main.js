@@ -1,7 +1,7 @@
 const { app, BrowserWindow, shell, Menu } = require("electron");
 const path = require("path");
 
-const RELAYED_URL = process.env.RELAYED_URL
+const RELAYED_URL = process.env.RELAYED_URL || "https://relayed.gg";
 
 let mainWindow;
 
@@ -24,8 +24,10 @@ function createWindow() {
   });
 
   mainWindow.loadURL(RELAYED_URL, {
-  userAgent: "RelayedDesktop/1.0"
-});
+    userAgent: "RelayedDesktop/1.0",
+  }).catch((err) => {
+    console.error("Failed to load Relayed:", err);
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (!url.startsWith(RELAYED_URL)) {
