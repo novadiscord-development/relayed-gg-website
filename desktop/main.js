@@ -1,7 +1,7 @@
 const { app, BrowserWindow, shell, Menu } = require("electron");
 const path = require("path");
 
-const RELAYED_URL = process.env.RELAYED_URL || "https://relayed.gg";
+const RELAYED_URL = process.env.RELAYED_URL
 
 let mainWindow;
 
