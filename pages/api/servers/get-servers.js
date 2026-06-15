@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session) {
+    if (!session?.user?.id) {
       return res.status(401).json({
         message: "Unauthorized",
       });
@@ -30,16 +30,18 @@ export default async function handler(req, res) {
     const serverIds = memberships.map((member) => member.serverId);
 
     const servers = await Server.find({
-      _id: { $in: serverIds },
+      publicId: { $in: serverIds },
     }).sort({ createdAt: 1 });
 
     const serversWithMembership = servers.map((server) => {
       const membership = memberships.find(
-        (member) => member.serverId.toString() === server._id.toString()
+        (member) => member.serverId?.toString() === server.publicId?.toString()
       );
 
       return {
-        _id: server._id,
+        _id: server.publicId,
+        id: server.publicId,
+        mongoId: server._id,
         name: server.name,
         icon: server.icon,
         ownerId: server.ownerId,
