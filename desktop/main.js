@@ -23,7 +23,9 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL(RELAYED_URL);
+  mainWindow.loadURL(RELAYED_URL, {
+  userAgent: "RelayedDesktop/1.0"
+});
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (!url.startsWith(RELAYED_URL)) {

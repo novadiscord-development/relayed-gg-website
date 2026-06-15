@@ -4,6 +4,14 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req) {
   const { pathname, search } = req.nextUrl;
 
+  const isDesktop =
+    req.headers.get("x-relayed-desktop") === "true" ||
+    req.headers.get("user-agent")?.includes("RelayedDesktop");
+
+  if (isDesktop && pathname === "/") {
+    return NextResponse.redirect(new URL("/app/me", req.url));
+  }
+
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
@@ -19,5 +27,5 @@ export async function middleware(req) {
 }
 
 export const config = {
-  matcher: ["/app/:path*"],
+  matcher: ["/", "/app/:path*"],
 };
