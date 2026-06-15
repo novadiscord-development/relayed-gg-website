@@ -60,7 +60,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       server: {
-        _id: server.publicId,
+        _id: server._id,
         name: server.name,
         icon: server.icon,
         banner: server.banner,

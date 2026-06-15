@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
 
 import connectDB from "@/lib/mongodb";
-import generateSnowflake from "@/lib/generateSnowflake";
 
 import Server from "@/models/Server";
 import Member from "@/models/Member";
@@ -70,7 +69,6 @@ export default async function handler(req, res) {
     const isPublic = visibility === "public";
 
     const server = await Server.create({
-      publicId: generateSnowflake(),
       name: cleanName,
       ownerId: session.user.id,
       description: cleanDescription,
@@ -84,15 +82,14 @@ export default async function handler(req, res) {
     await ensureEveryoneRole(server._id);
 
     await Member.create({
-      serverId: server.publicId,
+      serverId: server._id,
       userId: session.user.id,
       role: "owner",
       roles: [],
     });
 
     const textCategory = await Channel.create({
-      publicId: generateSnowflake(),
-      serverId: server.publicId,
+      serverId: server._id,
       name: "text-channels",
       type: "category",
       parentId: null,
@@ -100,8 +97,7 @@ export default async function handler(req, res) {
     });
 
     const voiceCategory = await Channel.create({
-      publicId: generateSnowflake(),
-      serverId: server.publicId,
+      serverId: server._id,
       name: "voice-channels",
       type: "category",
       parentId: null,
@@ -109,20 +105,18 @@ export default async function handler(req, res) {
     });
 
     const generalTextChannel = await Channel.create({
-      publicId: generateSnowflake(),
-      serverId: server.publicId,
+      serverId: server._id,
       name: "general",
       type: "text",
-      parentId: textCategory.publicId,
+      parentId: textCategory._id,
       position: 2,
     });
 
     const generalVoiceChannel = await Channel.create({
-      publicId: generateSnowflake(),
-      serverId: server.publicId,
+      serverId: server._id,
       name: "General",
       type: "voice",
-      parentId: voiceCategory.publicId,
+      parentId: voiceCategory._id,
       position: 3,
     });
 

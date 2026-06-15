@@ -9,13 +9,13 @@ const NotificationSchema = new mongoose.Schema(
     },
 
     serverId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Server",
       required: true,
     },
 
     channelId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Channel",
       required: true,
     },

@@ -59,7 +59,7 @@ const AttachmentSchema = new mongoose.Schema(
 const MessageSchema = new mongoose.Schema(
   {
     serverId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Server",
       required: true,
     },

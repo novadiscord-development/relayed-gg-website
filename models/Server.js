@@ -2,13 +2,6 @@ import mongoose from "mongoose";
 
 const ServerSchema = new mongoose.Schema(
   {
-
-    publicId: {
-      type: Number,
-      unique: true,
-      index: true,
-    },
-    
     name: {
       type: String,
       required: true,

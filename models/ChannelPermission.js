@@ -32,7 +32,7 @@ const PermissionOverrideSchema = new mongoose.Schema(
 const ChannelPermissionSchema = new mongoose.Schema(
   {
     serverId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Server",
       required: true,
       index: true,

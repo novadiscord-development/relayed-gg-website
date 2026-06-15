@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session?.user?.id) {
+    if (!session) {
       return res.status(401).json({
         message: "Unauthorized",
       });
@@ -24,35 +24,22 @@ export default async function handler(req, res) {
     await connectDB();
 
     const memberships = await Member.find({
-  userId: session.user.id,
-}).select("serverId role");
+      userId: session.user.id,
+    }).select("serverId role");
 
-const rawServerIds = memberships.map((member) => member.serverId?.toString());
+    const serverIds = memberships.map((member) => member.serverId);
 
-const numericPublicIds = rawServerIds
-  .filter((id) => /^\d+$/.test(id))
-  .map((id) => Number(id));
-
-const mongoObjectIds = rawServerIds.filter((id) =>
-  /^[0-9a-fA-F]{24}$/.test(id)
-);
-
-const servers = await Server.find({
-  $or: [
-    { publicId: { $in: numericPublicIds } },
-    { _id: { $in: mongoObjectIds } },
-  ],
-}).sort({ createdAt: 1 });
+    const servers = await Server.find({
+      _id: { $in: serverIds },
+    }).sort({ createdAt: 1 });
 
     const serversWithMembership = servers.map((server) => {
       const membership = memberships.find(
-        (member) => member.serverId?.toString() === server.publicId?.toString()
+        (member) => member.serverId.toString() === server._id.toString()
       );
 
       return {
-        _id: server.publicId,
-        id: server.publicId,
-        mongoId: server._id,
+        _id: server._id,
         name: server.name,
         icon: server.icon,
         ownerId: server.ownerId,
