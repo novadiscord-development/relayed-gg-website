@@ -13,7 +13,6 @@
 dist/
 dist-*/
 win-unpacked/
-*.exe
 *.blockmap
 *.dmg
 *.AppImage
