@@ -162,7 +162,7 @@ export default function ServerBar({ mobile = false, onNavigate }) {
           )}
 
           <Image
-            src="/logo.png"
+            src="/icon.ico"
             alt="relayed.gg"
             width={36}
             height={36}
