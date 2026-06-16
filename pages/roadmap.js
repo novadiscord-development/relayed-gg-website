@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Navbar from "@/components/landing/Navbar";
+import { LogOut } from "lucide-react";
 
 const phases = [
   {
