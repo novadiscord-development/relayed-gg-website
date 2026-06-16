@@ -1,8 +1,49 @@
+function isUrl(value = "") {
+  return /^(https?:\/\/|www\.)[^\s]+$/i.test(value);
+}
+
+function getHref(value = "") {
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  return `https://${value}`;
+}
+
+function trimTrailingPunctuation(value = "") {
+  const match = value.match(/^(.+?)([.,!?;:)]+)?$/);
+
+  return {
+    clean: match?.[1] || value,
+    trailing: match?.[2] || "",
+  };
+}
+
 function parseInline(text) {
-  const parts = text.split(/(\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|\*[^*]+\*|__[^_]+__|~~[^~]+~~|`[^`]+`|@[a-zA-Z0-9_.-]+)/g);
+  const parts = text.split(
+    /((?:https?:\/\/|www\.)[^\s]+|\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|\*[^*]+\*|__[^_]+__|~~[^~]+~~|`[^`]+`|@[a-zA-Z0-9_.-]+)/g
+  );
 
   return parts.map((part, index) => {
     if (!part) return null;
+
+    if (isUrl(part)) {
+      const { clean, trailing } = trimTrailingPunctuation(part);
+
+      return (
+        <span key={index}>
+          <a
+            href={getHref(clean)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="cursor-pointer text-[#00a8fc] hover:underline"
+          >
+            {clean}
+          </a>
+          {trailing}
+        </span>
+      );
+    }
 
     if (part.startsWith("***") && part.endsWith("***")) {
       return (
@@ -66,36 +107,23 @@ function parseInline(text) {
       );
     }
 
-    return part;
+    return <span key={index}>{part}</span>;
   });
 }
 
 export default function FormattedMessage({ content = "" }) {
   if (!content) return null;
 
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-
-  const parts = content.split(urlRegex);
+  const lines = content.split("\n");
 
   return (
     <p className="whitespace-pre-wrap break-words text-slate-100">
-      {parts.map((part, index) => {
-        if (urlRegex.test(part)) {
-          return (
-            <a
-              key={index}
-              href={part}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#00a8fc] hover:underline"
-            >
-              {part}
-            </a>
-          );
-        }
-
-        return part;
-      })}
+      {lines.map((line, index) => (
+        <span key={index}>
+          {parseInline(line)}
+          {index < lines.length - 1 && <br />}
+        </span>
+      ))}
     </p>
   );
 }
