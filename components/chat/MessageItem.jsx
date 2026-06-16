@@ -6,7 +6,7 @@ import MessageAttachments from "@/components/chat/MessageAttachments";
 import EmbedCard from "@/components/chat/EmbedCard";
 import FormattedMessage from "@/components/chat/FormattedMessage";
 import ReactionBar from "@/components/chat/ReactionBar";
-import ReactionPicker from "@/components/chat/ReactionBar";
+import ReactionPicker from "@/components/chat/ReactionPicker";
 
 export default function MessageItem({
   message,
