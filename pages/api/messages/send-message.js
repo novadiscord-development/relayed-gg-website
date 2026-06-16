@@ -73,6 +73,62 @@ async function sendTimeoutSystemMessage({
   return systemMessage;
 }
 
+async function updateMessageNotifications({
+  serverId,
+  channelId,
+  senderId,
+  cleanContent,
+  messageCreatedAt,
+}) {
+  const members = await Member.find({
+    serverId,
+    userId: { $ne: senderId },
+  })
+    .populate("userId", "username")
+    .lean();
+
+  if (!members.length) return;
+
+  const operations = members
+    .filter((member) => member.userId?._id)
+    .map((member) => {
+      const mentioned = contentMentionsUsername(
+        cleanContent,
+        member.userId?.username
+      );
+
+      return {
+        updateOne: {
+          filter: {
+            userId: member.userId._id,
+            serverId,
+            channelId,
+          },
+          update: {
+            $set: {
+              unread: true,
+              lastMessageAt: messageCreatedAt,
+            },
+            ...(mentioned
+              ? {
+                  $inc: {
+                    mentions: 1,
+                  },
+                }
+              : {}),
+          },
+          upsert: true,
+        },
+      };
+    });
+
+  if (!operations.length) return;
+
+  await Notification.bulkWrite(operations, {
+    ordered: false,
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
@@ -115,7 +171,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Too many attachments" });
     }
 
-    const channel = await Channel.findById(channelId);
+    const channel = await Channel.findById(channelId).lean();
 
     if (!channel || channel.type !== "text") {
       return res.status(404).json({ message: "Text channel not found" });
@@ -130,22 +186,27 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "You are not in this server" });
     }
 
-    if (!(await hasChannelPermission(membership, channel, "viewChannels"))) {
+    const [canView, canSend, canAttach] = await Promise.all([
+      hasChannelPermission(membership, channel, "viewChannels"),
+      hasChannelPermission(membership, channel, "sendMessages"),
+      cleanAttachments.length > 0
+        ? hasChannelPermission(membership, channel, "attachFiles")
+        : Promise.resolve(true),
+    ]);
+
+    if (!canView) {
       return res.status(403).json({
         message: "You cannot view this channel",
       });
     }
 
-    if (!(await hasChannelPermission(membership, channel, "sendMessages"))) {
+    if (!canSend) {
       return res.status(403).json({
         message: "You do not have permission to send messages in this channel",
       });
     }
 
-    if (
-      cleanAttachments.length > 0 &&
-      !(await hasChannelPermission(membership, channel, "attachFiles"))
-    ) {
+    if (!canAttach) {
       return res.status(403).json({
         message: "You do not have permission to attach files in this channel",
       });
@@ -196,7 +257,7 @@ export default async function handler(req, res) {
         _id: replyToId,
         channelId,
         serverId: channel.serverId,
-      });
+      }).select("_id");
 
       if (!replyToMessage) {
         return res.status(404).json({ message: "Reply message not found" });
@@ -221,48 +282,31 @@ export default async function handler(req, res) {
           path: "authorId",
           select: "username avatar isStaff isAdmin badges",
         },
-      });
+      })
+      .lean();
 
     await pusherServer.trigger(`channel-${channelId}`, "message:new", message);
 
-    const members = await Member.find({
-      serverId: channel.serverId,
-      userId: { $ne: session.user.id },
-    }).populate("userId", "username");
+    res.status(201).json({ message });
 
-    await Promise.all(
-      members.map((member) => {
-        const mentioned = contentMentionsUsername(
+    Promise.resolve()
+      .then(() =>
+        updateMessageNotifications({
+          serverId: channel.serverId,
+          channelId,
+          senderId: session.user.id,
           cleanContent,
-          member.userId?.username
-        );
-
-        return Notification.findOneAndUpdate(
-          {
-            userId: member.userId._id,
-            serverId: channel.serverId,
-            channelId,
-          },
-          {
-            $set: {
-              unread: true,
-              lastMessageAt: message.createdAt,
-            },
-            $inc: {
-              mentions: mentioned ? 1 : 0,
-            },
-          },
-          {
-            upsert: true,
-            returnDocument: "after",
-          }
-        );
-      })
-    );
-
-    return res.status(201).json({ message });
+          messageCreatedAt: message.createdAt,
+        })
+      )
+      .catch((error) => {
+        console.error("MESSAGE_NOTIFICATION_BACKGROUND_ERROR", error);
+      });
   } catch (error) {
     console.error("SEND_MESSAGE_ERROR", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+
+    if (!res.headersSent) {
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
   }
 }
