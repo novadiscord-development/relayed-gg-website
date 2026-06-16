@@ -1,7 +1,12 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 export default function Navbar() {
+  const { data: session, status } = useSession();
+
   return (
     <nav className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 backdrop-blur-xl">
       <Link href="/" className="flex items-center gap-3">
@@ -18,29 +23,14 @@ export default function Navbar() {
         </span>
       </Link>
 
-      <div className="hidden items-center gap-8 text-sm font-medium text-slate-300 md:flex">
-        <a href="/features" className="hover:text-white">Features</a>
-        <a href="/pricing" className="hover:text-white">Pricing</a>
-        <a href="/docs" className="hover:text-white">Docs</a>
-        <a href="/blog" className="hover:text-white">Blog</a>
-        <a href="/support" className="hover:text-white">Support</a>
-      </div>
-
-      <div className="flex items-center gap-3">
+      {status !== "loading" && (
         <Link
-          href="/login"
-          className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/[0.06]"
+          href={session ? "/app" : "/login"}
+          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold hover:bg-violet-500 transition-colors"
         >
-          Sign In
+          {session ? "Go to App" : "Get Started"}
         </Link>
-
-        <Link
-          href="/register"
-          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold hover:bg-violet-500"
-        >
-          Get Started
-        </Link>
-      </div>
+      )}
     </nav>
   );
 }
