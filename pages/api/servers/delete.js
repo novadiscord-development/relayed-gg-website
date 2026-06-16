@@ -51,15 +51,6 @@ export default async function handler(req, res) {
       });
     }
 
-    await AuditLog.create({
-      serverId,
-      action: "server_delete",
-      actorId: session.user.id,
-      metadata: {
-        serverName: server.name,
-      },
-    });
-
     await Promise.all([
       Message.deleteMany({ serverId }),
       Channel.deleteMany({ serverId }),
