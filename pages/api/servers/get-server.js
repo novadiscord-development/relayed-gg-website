@@ -46,9 +46,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const server = await Server.findOne({
-      serverId,
-    });
+    const server = await Server.findById(serverId);
 
     if (!server) {
       return res.status(404).json({
