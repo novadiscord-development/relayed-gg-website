@@ -73,11 +73,17 @@ export default function ChatArea() {
       return true;
     }
 
-    if (permission === "sendMessages" && ["moderator", "member"].includes(member.role)) {
+    if (
+      permission === "sendMessages" &&
+      ["moderator", "member"].includes(member.role)
+    ) {
       return true;
     }
 
-    if (permission === "attachFiles" && ["moderator", "member"].includes(member.role)) {
+    if (
+      permission === "attachFiles" &&
+      ["moderator", "member"].includes(member.role)
+    ) {
       return true;
     }
 
@@ -125,11 +131,30 @@ export default function ChatArea() {
     const pusherChannel = pusherClient.subscribe(`channel-${channelId}`);
 
     function handleNewMessage(message) {
-      setMessages((prev) =>
-        prev.some((item) => item._id === message._id)
-          ? prev
-          : [...prev, message]
-      );
+      setMessages((prev) => {
+        const optimisticIndex = prev.findIndex((item) => {
+          const optimisticAuthorId = item.authorId?._id || item.authorId;
+          const realAuthorId = message.authorId?._id || message.authorId;
+
+          return (
+            item.pending &&
+            optimisticAuthorId?.toString() === realAuthorId?.toString() &&
+            item.content === message.content
+          );
+        });
+
+        if (optimisticIndex !== -1) {
+          const copy = [...prev];
+          copy[optimisticIndex] = message;
+          return copy;
+        }
+
+        if (prev.some((item) => item._id === message._id)) {
+          return prev;
+        }
+
+        return [...prev, message];
+      });
 
       removeTypingUser(message.authorId?._id || message.authorId);
     }
@@ -465,7 +490,31 @@ export default function ChatArea() {
 
     const messageContent = content;
     const messageAttachments = attachments;
-    const replyToId = replyingTo?._id || null;
+    const replyTarget = replyingTo;
+    const replyToId = replyTarget?._id || null;
+    const tempId = `temp-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`;
+
+    const optimisticMessage = {
+      _id: tempId,
+      pending: true,
+      createdAt: new Date().toISOString(),
+      content: messageContent.trim(),
+      attachments: messageAttachments,
+      replyToId: replyTarget || null,
+      authorId: {
+        _id: session?.user?.id,
+        username: session?.user?.username || session?.user?.name || "You",
+        avatar: session?.user?.avatar || session?.user?.image || "/logo.png",
+        image: session?.user?.avatar || session?.user?.image || "/logo.png",
+        isStaff: session?.user?.isStaff || false,
+        isAdmin: session?.user?.isAdmin || false,
+        badges: session?.user?.badges || [],
+      },
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
 
     setSending(true);
     setContent("");
@@ -490,23 +539,49 @@ export default function ChatArea() {
 
       if (!res.ok) {
         console.error("SEND_MESSAGE_FAILED", data);
+
+        setMessages((prev) =>
+          prev.map((message) =>
+            message._id === tempId
+              ? {
+                  ...message,
+                  pending: false,
+                  failed: true,
+                }
+              : message
+          )
+        );
+
         setContent(messageContent);
         setAttachments(messageAttachments);
-        setReplyingTo(replyingTo);
+        setReplyingTo(replyTarget);
         focusInput();
         return;
       }
 
       setMessages((prev) =>
-        prev.some((item) => item._id === data.message._id)
-          ? prev
-          : [...prev, data.message]
+        prev.map((message) =>
+          message._id === tempId ? data.message : message
+        )
       );
     } catch (error) {
       console.error("SEND_MESSAGE_ERROR", error);
+
+      setMessages((prev) =>
+        prev.map((message) =>
+          message._id === tempId
+            ? {
+                ...message,
+                pending: false,
+                failed: true,
+              }
+            : message
+        )
+      );
+
       setContent(messageContent);
       setAttachments(messageAttachments);
-      setReplyingTo(replyingTo);
+      setReplyingTo(replyTarget);
     } finally {
       setSending(false);
       focusInput();
