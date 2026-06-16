@@ -1,4 +1,22 @@
+import { useEffect } from "react";
+
 export default function ImagePreviewModal({ image, onClose }) {
+  useEffect(() => {
+    if (!image) return;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [image, onClose]);
+
   if (!image) return null;
 
   return (

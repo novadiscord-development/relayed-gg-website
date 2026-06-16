@@ -1,10 +1,12 @@
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Copy, Pencil, Pin, Reply, Trash2 } from "lucide-react";
+import { Copy, Pencil, Pin, Reply, Smile, Trash2 } from "lucide-react";
 import ReplyPreview from "@/components/chat/ReplyPreview";
 import MessageAttachments from "@/components/chat/MessageAttachments";
 import EmbedCard from "@/components/chat/EmbedCard";
 import FormattedMessage from "@/components/chat/FormattedMessage";
 import ReactionBar from "@/components/chat/ReactionBar";
+import ReactionPicker from "@/components/chat/ReactionBar";
 
 export default function MessageItem({
   message,
@@ -32,6 +34,32 @@ export default function MessageItem({
   const author = message.authorId;
   const isEditing = editingMessage?._id === message._id;
 
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const actionBarRef = useRef(null);
+
+  useEffect(() => {
+    if (!showReactionPicker) return;
+
+    function handleMouseDown(event) {
+      if (actionBarRef.current?.contains(event.target)) return;
+      setShowReactionPicker(false);
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setShowReactionPicker(false);
+      }
+    }
+
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showReactionPicker]);
+
   async function copyMessage() {
     if (!message.content) return;
 
@@ -53,6 +81,8 @@ export default function MessageItem({
   const canModerateMessages = ["owner", "admin", "moderator"].includes(
     currentMember?.role
   );
+
+  const hasReactions = (message.reactions || []).length > 0;
 
   if (message.system) {
     return (
@@ -80,7 +110,34 @@ export default function MessageItem({
       } ${grouped ? "py-px" : "py-2"}`}
     >
       {!isEditing && (
-        <div className="absolute right-4 top-0 hidden -translate-y-1/2 overflow-hidden rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex">
+        <div
+          ref={actionBarRef}
+          className="absolute right-4 top-0 z-40 hidden -translate-y-1/2 overflow-visible rounded-lg border border-white/10 bg-[#111827] shadow-xl group-hover:flex"
+        >
+          <div className="relative">
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setShowReactionPicker((prev) => !prev)}
+              className={`p-2 hover:bg-white/[0.06] ${
+                showReactionPicker
+                  ? "text-violet-300"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              title="Add reaction"
+            >
+              <Smile size={16} />
+            </button>
+
+            {showReactionPicker && (
+              <ReactionPicker
+                message={message}
+                onToggleReaction={onToggleReaction}
+                onClose={() => setShowReactionPicker(false)}
+              />
+            )}
+          </div>
+
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
@@ -125,6 +182,7 @@ export default function MessageItem({
                 setEditingMessage(message);
                 setEditContent(message.content || "");
                 setReplyingTo(null);
+                setShowReactionPicker(false);
               }}
               className="p-2 text-slate-400 hover:bg-white/6 hover:text-white"
               title="Edit message"
@@ -137,7 +195,10 @@ export default function MessageItem({
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => handleDeleteMessage(message)}
+              onClick={() => {
+                setShowReactionPicker(false);
+                handleDeleteMessage(message);
+              }}
               className="p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
               title="Delete message"
             >
@@ -282,11 +343,13 @@ export default function MessageItem({
               </div>
             )}
 
-            <ReactionBar
-              message={message}
-              session={session}
-              onToggleReaction={onToggleReaction}
-            />
+            {hasReactions && (
+              <ReactionBar
+                message={message}
+                session={session}
+                onToggleReaction={onToggleReaction}
+              />
+            )}
           </>
         )}
       </div>
