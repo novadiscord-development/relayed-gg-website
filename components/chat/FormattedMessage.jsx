@@ -71,57 +71,31 @@ function parseInline(text) {
 }
 
 export default function FormattedMessage({ content = "" }) {
-  const lines = content.split("\n");
+  if (!content) return null;
+
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  const parts = content.split(urlRegex);
 
   return (
-    <div className="space-y-1 whitespace-pre-wrap break-words leading-[1.375rem] text-slate-100">
-      {lines.map((line, index) => {
-        if (line.startsWith("### ")) {
+    <p className="whitespace-pre-wrap break-words text-slate-100">
+      {parts.map((part, index) => {
+        if (urlRegex.test(part)) {
           return (
-            <h3 key={index} className="text-lg font-black text-white">
-              {parseInline(line.replace("### ", ""))}
-            </h3>
-          );
-        }
-
-        if (line.startsWith("## ")) {
-          return (
-            <h2 key={index} className="text-xl font-black text-white">
-              {parseInline(line.replace("## ", ""))}
-            </h2>
-          );
-        }
-
-        if (line.startsWith("# ")) {
-          return (
-            <h1 key={index} className="text-2xl font-black text-white">
-              {parseInline(line.replace("# ", ""))}
-            </h1>
-          );
-        }
-
-        if (line.startsWith("> ")) {
-          return (
-            <blockquote
+            <a
               key={index}
-              className="border-l-4 border-slate-600 pl-3 text-slate-300"
+              href={part}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#00a8fc] hover:underline"
             >
-              {parseInline(line.replace("> ", ""))}
-            </blockquote>
+              {part}
+            </a>
           );
         }
 
-        if (line.startsWith("- ")) {
-          return (
-            <p key={index} className="pl-4 text-slate-100">
-              <span className="mr-2 text-slate-500">•</span>
-              {parseInline(line.replace("- ", ""))}
-            </p>
-          );
-        }
-
-        return <p key={index}>{parseInline(line)}</p>;
+        return part;
       })}
-    </div>
+    </p>
   );
 }
