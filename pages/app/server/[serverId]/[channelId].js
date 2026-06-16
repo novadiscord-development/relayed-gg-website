@@ -142,7 +142,7 @@ export default function ServerChannelPage() {
         const firstTextChannel = data.firstTextChannel;
 
         if (firstTextChannel?._id) {
-          router.replace(`/app/server/${serverId}/channel/${firstTextChannel._id}`);
+          router.replace(`/app/server/${serverId}/${firstTextChannel._id}`);
           return;
         }
 

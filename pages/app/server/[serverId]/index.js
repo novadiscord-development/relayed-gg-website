@@ -147,7 +147,7 @@ export default function ServerRedirectPage() {
         return;
       }
 
-      router.replace(`/app/server/${serverId}/channel/${firstChannel._id}`);
+      router.replace(`/app/server/${serverId}/${firstChannel._id}`);
     } catch (error) {
       console.error("SERVER_REDIRECT_ERROR", error);
       setHasNoChannels(true);
