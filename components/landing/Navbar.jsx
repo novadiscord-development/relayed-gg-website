@@ -22,7 +22,7 @@ export default function Navbar() {
       <div className="hidden items-center gap-8 md:flex">
         <Link href="/download" className="text-sm font-bold text-white/80 hover:text-white">Download</Link>
         <Link href="/support" className="text-sm font-bold text-white/80 hover:text-white">Support</Link>
-        <Link href="/roadmap" className="text-sm font-bold text-white/80 hover:text-white">Roadmap</Link>
+        <Link href="/roadmap" className="text-sm font-bold text-white/80 hover:text-white">Roadmap v2</Link>
       </div>
 
       {status !== "loading" && (
