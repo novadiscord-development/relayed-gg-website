@@ -18,16 +18,25 @@ const maintenanceMode =
 export default function App({ Component, pageProps }) {
   const router = useRouter();
 
-  if (maintenanceMode) {
-    return <MaintenancePage />;
-  }
-
   const isAppRoute = router.pathname.startsWith("/app");
+
+  const shouldShowAppLoader =
+    router.pathname === "/app" ||
+    router.pathname === "/app/index" ||
+    router.pathname === "/app/me";
+
+  if (maintenanceMode && isAppRoute) {
+    return (
+      <SessionProvider session={pageProps.session}>
+        <MaintenancePage />
+      </SessionProvider>
+    );
+  }
 
   return (
     <SessionProvider session={pageProps.session}>
       <NotificationProvider>
-        {isAppRoute && <ClientAppEffects />}
+        {shouldShowAppLoader && <ClientAppEffects />}
 
         {isAppRoute && <NotificationListener />}
         {isAppRoute && <PresenceProvider />}
