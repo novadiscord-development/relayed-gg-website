@@ -1,6 +1,6 @@
 {
   "name": "relayed-gg",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Relayed desktop and web app",
   "author": "Relayed",
   "private": false,
@@ -47,11 +47,19 @@
     "tailwindcss": "^4"
   },
   "build": {
+    "publish": [
+  {
+    "provider": "github",
+    "owner": "novadiscord-development",
+    "repo": "relayed-gg-website"
+  }
+],
     "appId": "gg.relayed.desktop",
     "productName": "Relayed",
     "directories": {
       "output": "dist"
     },
+    
     "files": [
       "desktop/**/*",
       "build/**/*",

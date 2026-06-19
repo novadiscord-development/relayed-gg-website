@@ -10,7 +10,7 @@ export default function Maintenance() {
       <section className="scene" aria-labelledby="maintenance-title">
         <div className="badge">
           <span className="statusDot" />
-          Scheduled maintenance
+          Site rebuild in progress
         </div>
 
         <div className="logoWrap">
@@ -22,11 +22,12 @@ export default function Maintenance() {
           relayed<span>.gg</span>
         </h1>
 
-        <h2>We&rsquo;re tuning things up</h2>
+        <h2>Relayed.gg is under maintenance</h2>
 
         <p>
-          Relayed is temporarily offline while we upgrade a few systems behind
-          the scenes. Your servers, messages, and settings are safe.
+          We&apos;re rewriting Relayed.gg to come back better than ever with a
+          fresh look and feel. The new experience is being built to make your
+          gaming communication fast, smooth, and seamlessly relayed.
         </p>
 
         <div className="loader" aria-hidden="true">
@@ -38,7 +39,7 @@ export default function Maintenance() {
         <div className="footerText">
           <span>Thanks for your patience.</span>
           <span className="divider" />
-          <span>We&rsquo;ll be back shortly.</span>
+          <span>Something better is coming.</span>
         </div>
       </section>
 
